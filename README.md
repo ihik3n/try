@@ -37,6 +37,10 @@ docker compose up -d --build
 
 Χρειάζεται [Node.js 22](https://nodejs.org/) ή νεότερο.
 
+**Windows, ο απλούστερος τρόπος:** διπλό κλικ στο `start-windows.bat`. Την πρώτη φορά εγκαθιστά ό,τι χρειάζεται και μετά ανοίγει την εφαρμογή στον browser. Το παράθυρο πρέπει να μένει ανοιχτό όσο τη χρησιμοποιείτε. Αν τα Windows ρωτήσουν για το Τείχος προστασίας, επιτρέψτε την πρόσβαση στα «Ιδιωτικά δίκτυα», ώστε να ανοίγει και από το iPhone.
+
+Με εντολές (στο PowerShell γράψτε `npm.cmd` αντί για `npm`, αλλιώς εμφανίζεται το σφάλμα «running scripts is disabled on this system»):
+
 ```bash
 npm install
 npm run build
