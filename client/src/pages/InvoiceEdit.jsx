@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api, fetchBlob } from '../api.js';
 import { needsPdfRenderer, isStandalone, deliverFile } from '../platform.js';
 import { PdfView } from '../components/PdfView.jsx';
+import { ClaudeImport } from '../components/ClaudeImport.jsx';
 import { useStore, useAction } from '../store.jsx';
 import { PageHead, Field, NumberInput, TextInput, Select, Badge, SampleBadge, Spinner, Modal, DiffText, Link } from '../ui.jsx';
 import { Icon } from '../icons.jsx';
@@ -46,6 +47,7 @@ export function InvoiceEdit({ id }) {
   const [picker, setPicker] = useState(null); // line key
   const [newMat, setNewMat] = useState(null); // { key, initial }
   const [result, setResult] = useState(null);
+  const [claude, setClaude] = useState(false);
   const [docIdx, setDocIdx] = useState(0);
   const seq = useRef(0);
   const camRef = useRef(null);
@@ -322,11 +324,18 @@ export function InvoiceEdit({ id }) {
             ) : (
               <DocViewer files={inv.files} idx={docIdx} setIdx={setDocIdx} onRemove={inv.status === 'draft' ? removeFile : null} />
             )}
-            {inv.status === 'draft' && catalog.ai?.enabled && inv.files.length > 0 && inv.ai_status !== 'running' && (
-              <button className="btn small" onClick={doExtract} disabled={busy}>
-                <Icon name="refresh" /> {inv.ai_status ? 'Νέα ανάγνωση' : 'Ανάγνωση με AI'}
-              </button>
-            )}
+            <div className="row">
+              {inv.status === 'draft' && catalog.ai?.enabled && inv.files.length > 0 && inv.ai_status !== 'running' && (
+                <button className="btn small" onClick={doExtract} disabled={busy}>
+                  <Icon name="refresh" /> {inv.ai_status ? 'Νέα ανάγνωση' : 'Ανάγνωση με AI'}
+                </button>
+              )}
+              {inv.status === 'draft' && inv.ai_status !== 'running' && (
+                <button className="btn small" onClick={async () => (dirty && (await save()), setClaude(true))} disabled={busy}>
+                  <Icon name="copy" /> Ανάγνωση με Claude (συνδρομή)
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
@@ -382,6 +391,16 @@ export function InvoiceEdit({ id }) {
               </button>
             )}
           </div>
+          {inv.status === 'draft' && !readonly && draft.lines.length === 0 && (
+            <div className="alert info">
+              <b>Αυτόματη συμπλήρωση γραμμών με τη συνδρομή σας στο Claude</b>, χωρίς κλειδί API και χωρίς επιπλέον χρέωση: αντιγράφετε τις οδηγίες, τις στέλνετε στο Claude μαζί με τη φωτογραφία και επικολλάτε εδώ την απάντηση.
+              <div style={{ marginTop: '.5rem' }}>
+                <button className="btn primary" onClick={async () => (dirty && (await save()), setClaude(true))}>
+                  <Icon name="copy" /> Ανάγνωση με Claude
+                </button>
+              </div>
+            </div>
+          )}
           {draft.lines.map((l, i) => (
             <LineCard
               key={l._key}
@@ -495,6 +514,20 @@ export function InvoiceEdit({ id }) {
         />
       )}
       {result && <ConfirmResult event={result} onClose={() => setResult(null)} />}
+      {claude && (
+        <ClaudeImport
+          invoice={inv}
+          hasLines={draft.lines.length > 0}
+          onClose={() => setClaude(false)}
+          onDone={(res) => {
+            setInv(res);
+            setDraft(toDraft(res));
+            setDirty(false);
+            setClaude(false);
+            reload();
+          }}
+        />
+      )}
     </div>
   );
 }

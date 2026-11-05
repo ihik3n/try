@@ -10,6 +10,7 @@ import { getInvoice, getInvoiceRaw, saveDraft, confirmInvoice, reopenInvoice, de
 import { loadMaterials } from '../services/catalog.js';
 import { extractionToDraft } from '../services/ai.js';
 import { applyLocalMatches, applyAiMatches } from '../services/matching.js';
+import { buildClaudePrompt, parseClaudeResponse } from '../services/claudeImport.js';
 import { normalize, similarity } from '../../shared/text.js';
 import { HttpError, idParam, int } from './util.js';
 
@@ -56,6 +57,30 @@ export function invoiceRoutes({ db, config, ai, log = console }) {
     }
   }
 
+  /** Γράφει το αποτέλεσμα μιας ανάγνωσης (AI ή Claude συνδρομής) στο πρόχειρο τιμολόγιο. */
+  function applyReading(id, { draft, output, model, warnings, lines, supplierId, replace }) {
+    db.transaction(() => {
+      const cur = db.prepare('SELECT * FROM invoices WHERE id = ?').get(id);
+      if (!cur || cur.status !== 'draft') return;
+      const h = draft.header;
+      const set = {};
+      for (const k of ['supplier_name', 'supplier_vat', 'number', 'doc_date', 'doc_type', 'net_total', 'vat_total', 'gross_total', 'extra_discount']) {
+        if (replace || cur[k] == null || cur[k] === '') set[k] = h[k] ?? null;
+      }
+      if ((replace || !cur.supplier_id) && supplierId) set.supplier_id = supplierId;
+      set.flags = JSON.stringify(h.flags);
+      set.ai_status = 'done';
+      set.ai_model = model;
+      set.ai_result = JSON.stringify(output);
+      set.ai_warnings = JSON.stringify(warnings);
+      set.ai_error = null;
+      set.updated_at = nowIso();
+      db.prepare(`UPDATE invoices SET ${Object.keys(set).map((k) => `${k} = @${k}`).join(', ')} WHERE id = @id`).run({ ...set, id });
+      const hasLines = db.prepare('SELECT COUNT(*) c FROM invoice_lines WHERE invoice_id = ?').get(id).c > 0;
+      if (replace || !hasLines) replaceLines(db, id, lines);
+    })();
+  }
+
   async function runExtraction(id, { replace }) {
     if (running.has(id)) return;
     running.add(id);
@@ -83,26 +108,7 @@ export function invoiceRoutes({ db, config, ai, log = console }) {
           log.error?.('AI match error', err.message);
         }
       }
-      db.transaction(() => {
-        const cur = db.prepare('SELECT * FROM invoices WHERE id = ?').get(id);
-        if (!cur || cur.status !== 'draft') return;
-        const h = draft.header;
-        const set = {};
-        for (const k of ['supplier_name', 'supplier_vat', 'number', 'doc_date', 'doc_type', 'net_total', 'vat_total', 'gross_total', 'extra_discount']) {
-          if (replace || cur[k] == null || cur[k] === '') set[k] = h[k] ?? null;
-        }
-        if ((replace || !cur.supplier_id) && supplierId) set.supplier_id = supplierId;
-        set.flags = JSON.stringify(h.flags);
-        set.ai_status = 'done';
-        set.ai_model = model;
-        set.ai_result = JSON.stringify(output);
-        set.ai_warnings = JSON.stringify(warnings);
-        set.ai_error = null;
-        set.updated_at = nowIso();
-        db.prepare(`UPDATE invoices SET ${Object.keys(set).map((k) => `${k} = @${k}`).join(', ')} WHERE id = @id`).run({ ...set, id });
-        const hasLines = db.prepare('SELECT COUNT(*) c FROM invoice_lines WHERE invoice_id = ?').get(id).c > 0;
-        if (replace || !hasLines) replaceLines(db, id, lines);
-      })();
+      applyReading(id, { draft, output, model, warnings, lines, supplierId, replace });
     } catch (err) {
       log.error?.('AI extraction error', err.message);
       db.prepare("UPDATE invoices SET ai_status = 'error', ai_error = ?, updated_at = ? WHERE id = ?").run(err.message || 'Άγνωστο σφάλμα', nowIso(), id);
@@ -236,6 +242,36 @@ export function invoiceRoutes({ db, config, ai, log = console }) {
     }
     replaceLines(db, id, lines);
     res.json({ ...getInvoice(db, id), ai_used: aiUsed });
+  });
+
+  // ---- Ανάγνωση με τη συνδρομή Claude (χωρίς κλειδί API): οδηγίες και εισαγωγή της απάντησης ----
+  r.get('/claude-prompt', (req, res) => {
+    res.json({ prompt: buildClaudePrompt(loadMaterials(db)) });
+  });
+
+  r.post('/invoices/:id/import', (req, res) => {
+    const id = idParam(req);
+    const inv = getInvoiceRaw(db, id);
+    if (!inv) throw new HttpError(404, 'Το παραστατικό δεν βρέθηκε.');
+    if (inv.status !== 'draft') throw new HttpError(409, 'Το παραστατικό είναι επιβεβαιωμένο.');
+    if (inv.ai_status === 'running') throw new HttpError(409, 'Η ανάγνωση βρίσκεται σε εξέλιξη.');
+    let output;
+    try {
+      output = parseClaudeResponse(req.body?.text);
+    } catch (err) {
+      throw new HttpError(400, err.message);
+    }
+    const draft = extractionToDraft(output);
+    const warnings = [...draft.warnings];
+    if (!draft.readable) warnings.unshift('Το Claude δεν αναγνώρισε το έγγραφο ως παραστατικό. Ελέγξτε τα στοιχεία.');
+    const supplierId = guessSupplier(db, draft.header);
+    const materials = loadMaterials(db).filter((m) => !m.archived);
+    let { lines } = applyLocalMatches(db, supplierId, draft.lines, materials);
+    // Οι προτάσεις υλικού του Claude περνούν από τους ίδιους ελέγχους (π.χ. διαφορετικό ποσοστό λιπαρών) και θέλουν επιβεβαίωση.
+    const suggestions = output.lines.map((l, i) => ({ line_index: i, material_id: l.material_id, confidence: 0.8, reason: 'από το Claude' })).filter((m) => m.material_id != null);
+    lines = applyAiMatches(lines, suggestions, materials);
+    applyReading(id, { draft, output, model: 'Claude (συνδρομή)', warnings, lines, supplierId, replace: req.body?.replace !== false });
+    res.json(getInvoice(db, id));
   });
 
   r.post('/invoices/:id/confirm', (req, res) => {

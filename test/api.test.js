@@ -431,3 +431,57 @@ test('κλειδί από μεταβλητή περιβάλλοντος δεν �
   assert.equal(m.status().enabled, true);
   await assert.rejects(() => m.saveKey('sk-ant-api03-' + 'c'.repeat(40)), /server/);
 });
+
+test('ανάγνωση με συνδρομή Claude: οδηγίες, επικόλληση απάντησης, έλεγχοι', async () => {
+  const s = await loggedIn();
+  const { api } = s;
+  try {
+    const c35 = await mkMaterial(api, { name: 'Κρέμα γάλακτος 35%', cost_unit: 'l' });
+    const c48 = await mkMaterial(api, { name: 'Κρέμα γάλακτος 48%', cost_unit: 'l' });
+    const butter = await mkMaterial(api, { name: 'Βούτυρο αγελάδος 82%', cost_unit: 'kg' });
+    const { prompt } = await api.get('/api/claude-prompt');
+    assert.ok(prompt.includes(`${c35.id}: Κρέμα γάλακτος 35%`));
+    assert.ok(prompt.includes('ΜΗΝ επινοείς'));
+
+    const inv = await api.post('/api/invoices?extract=0', new FormData());
+    // Απάντηση όπως την αντιγράφει ο χρήστης από το Claude: κείμενο + μπλοκ json, αριθμοί και ως κείμενο με κόμμα
+    const reply = `Ορίστε τα στοιχεία:
+\`\`\`json
+{
+  "supplier_name": "ΓΑΛΑΚΤΟΚΟΜΙΚΑ Χ", "supplier_vat": "EL123456789", "number": "Β-12", "date": "2026-11-02",
+  "net_total": "150,00", "vat_total": 19.5, "gross_total": 169.5,
+  "lines": [
+    { "description": "ΒΟΥΤΥΡΟ ΑΓΕΛΑΔΟΣ 82% 2,5KG", "qty": "4", "qty_unit": "ΤΕΜ", "pack_size": "2,5", "pack_unit": "KG", "net_amount": "90,00", "vat_rate": "13%", "material_id": ${butter.id} },
+    { "description": "ΚΡΕΜΑ ΓΑΛΑΚΤΟΣ 48% 1LT", "qty": 12, "qty_unit": "unit", "pack_size": 1, "pack_unit": "l", "net_amount": 60, "vat_rate": 13, "material_id": ${c35.id}, "uncertain_fields": ["net_amount"] },
+    { "description": "ΜΕΤΑΦΟΡΙΚΑ", "net_amount": 5, "is_material": false }
+  ]
+}
+\`\`\`
+Ελέγξτε τη δεύτερη γραμμή.`;
+    const r = await api.post(`/api/invoices/${inv.id}/import`, { text: reply });
+    assert.equal(r.number, 'Β-12');
+    assert.equal(r.supplier_vat, '123456789');
+    assert.equal(r.doc_date, '2026-11-02');
+    assert.equal(r.net_total, 150);
+    assert.equal(r.ai_model, 'Claude (συνδρομή)');
+    assert.equal(r.lines.length, 3);
+    assert.equal(r.lines[0].material_id, butter.id);
+    assert.equal(r.lines[0].match_source, 'ai'); // πρόταση: θέλει επιβεβαίωση
+    assert.equal(r.lines[0].qty_unit, 'unit');
+    assert.equal(r.lines[0].pack_unit, 'kg');
+    assert.equal(r.lines[0].vat_rate, 13);
+    assert.ok(Math.abs(r.computed.lines[0].unitCost - 9) < 1e-9);
+    // Το Claude πρότεινε λάθος την 35% για γραμμή 48% → απορρίπτεται
+    assert.notEqual(r.lines[1].material_id, c35.id);
+    assert.deepEqual(r.lines[1].flags, ['net_amount']);
+    assert.equal(r.lines[2].excluded, 1);
+    assert.equal(r.computed.canConfirm, false);
+    void c48;
+
+    const bad = await api.post(`/api/invoices/${inv.id}/import`, { text: 'Δεν μπορώ να διαβάσω την εικόνα.' }, { raw: true });
+    assert.equal(bad.status, 400);
+    assert.match(bad.data.error, /Δεν βρέθηκαν δεδομένα/);
+  } finally {
+    await s.close();
+  }
+});

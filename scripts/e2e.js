@@ -122,7 +122,7 @@ async function run() {
   step('Χειροκίνητο τιμολόγιο: 4 × 2,5 kg βούτυρο, 90 € → 9 €/kg');
   await nav(m, 'Τιμολόγια');
   await m.getByRole('button', { name: /Αρχεία/ }).click();
-  await m.getByRole('button', { name: /Χειροκίνητη καταχώριση/ }).click();
+  await m.getByRole('button', { name: /Καταχώριση χωρίς αρχείο/ }).click();
   await m.getByText('Στοιχεία παραστατικού').waitFor();
   await m.locator('input[list=suppliers-dl]').fill('ΠΑΡΑΔΕΙΓΜΑ Γαλακτοκομικά Α.Ε.');
   await m.locator('.field', { hasText: 'Αριθμός' }).locator('input').fill('Α-2001');
@@ -284,13 +284,26 @@ async function run() {
   await i.getByText('Νέο τιμολόγιο').waitFor();
   await i.locator('input[type=file][multiple]').setInputFiles({ name: 'τιμολόγιο.pdf', mimeType: 'application/pdf', buffer: pdf });
   await i.locator('.doc-thumb').first().waitFor();
-  await i.getByRole('button', { name: /Αποθήκευση χωρίς ανάγνωση/ }).click();
+  await i.getByRole('button', { name: /^Αποθήκευση( χωρίς ανάγνωση)?$/ }).click();
   await i.getByText('Στοιχεία παραστατικού').waitFor();
   await i.locator('img.pdf-page').nth(1).waitFor({ timeout: 20000 });
   const pages = await i.locator('img.pdf-page').count();
   if (pages !== 2) throw new Error(`Εμφανίστηκαν ${pages} σελίδες PDF αντί για 2`);
   if (await i.locator('iframe').count()) throw new Error('Χρήση iframe για PDF στο iPhone');
   await shot(i, 'i03-pdf');
+
+  step('iPhone: ανάγνωση με τη συνδρομή Claude (αντιγραφή οδηγιών → επικόλληση απάντησης)');
+  await i.getByRole('button', { name: 'Ανάγνωση με Claude', exact: true }).click();
+  await i.getByRole('button', { name: /Αντιγραφή οδηγιών/ }).click();
+  await i.getByText(/Οι οδηγίες αντιγράφηκαν|Η αυτόματη αντιγραφή δεν επιτρέπεται/).first().waitFor();
+  await i.getByPlaceholder('Επικόλληση της απάντησης του Claude…').fill(
+    'Ορίστε:\n```json\n{"supplier_name":"ΠΑΡΑΔΕΙΓΜΑ Γαλακτοκομικά Α.Ε.","number":"Γ-5","date":"2026-11-03","lines":[{"description":"ΒΟΥΤΥΡΟ ΑΓΕΛΑΔΟΣ 82% 2,5KG","supplier_code":"BT250","qty":4,"qty_unit":"unit","pack_size":2.5,"pack_unit":"kg","net_amount":"90,00","vat_rate":13}]}\n```',
+  );
+  await shot(i, 'i03b-claude-import');
+  await i.getByRole('button', { name: /Συμπλήρωση γραμμών/ }).click();
+  await i.locator('.inv-line').first().waitFor();
+  await i.locator('.inv-line').first().getByText('9,00 €/kg').waitFor();
+  await i.locator('.inv-line').first().getByText('Αποθηκευμένη αντιστοίχιση').waitFor();
 
   step('iPhone: πληκτρολόγιο ανοιχτό → οι κάτω μπάρες κρύβονται');
   await i.locator('.field', { hasText: 'Αριθμός' }).locator('input').focus();
