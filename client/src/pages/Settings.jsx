@@ -4,6 +4,7 @@ import { useStore, useAction } from '../store.jsx';
 import { PageHead, Field, TextInput, NumberInput, Badge, Spinner, Modal, SampleBadge } from '../ui.jsx';
 import { Icon } from '../icons.jsx';
 import { formatDateTime, formatBytes } from '../format.js';
+import { isIOS, isStandalone } from '../platform.js';
 
 export function Settings() {
   const { catalog, reload, confirm } = useStore();
@@ -69,6 +70,7 @@ export function Settings() {
         </div>
         <Exports />
       </div>
+      <InstallCard />
       <Backups />
       <div className="grid2">
         <Users />
@@ -387,6 +389,43 @@ function SampleData() {
           </button>
         </>
       )}
+    </div>
+  );
+}
+
+function InstallCard() {
+  const standalone = isStandalone();
+  const secure = window.isSecureContext;
+  return (
+    <div className="card">
+      <h2>Εφαρμογή στο iPhone / iPad</h2>
+      {standalone ? (
+        <p>
+          <Badge kind="ok">Εγκατεστημένη</Badge> Η εφαρμογή ανοίγει από την αρχική οθόνη σε πλήρη οθόνη. Για ανανέωση δεδομένων πατήστε <Icon name="refresh" size={16} /> στην πάνω μπάρα.
+        </p>
+      ) : (
+        <ol style={{ paddingLeft: '1.2rem', margin: '0 0 .6rem' }}>
+          <li>
+            Ανοίξτε στο <b>Safari</b> του iPhone τη διεύθυνση <code style={{ overflowWrap: 'anywhere' }}>{window.location.origin}</code>
+          </li>
+          <li>
+            Πατήστε <b>«Κοινοποίηση»</b> (το τετράγωνο με το βέλος προς τα πάνω).
+          </li>
+          <li>
+            Επιλέξτε <b>«Προσθήκη στην αρχική οθόνη»</b> και μετά <b>«Προσθήκη»</b>.
+          </li>
+          <li>Ανοίξτε την «Κοστολόγηση» από το εικονίδιο και συνδεθείτε μία φορά (η εφαρμογή κρατά ξεχωριστή σύνδεση από το Safari).</li>
+        </ol>
+      )}
+      <p className="small muted">
+        Τα δεδομένα είναι κοινά με τον υπολογιστή, γιατί βρίσκονται στον server. Η κάμερα για τα τιμολόγια λειτουργεί κανονικά. Τα αρχεία Excel/CSV και τα αντίγραφα ασφαλείας αποθηκεύονται μέσω «Κοινοποίηση» → «Αποθήκευση στα Αρχεία».
+      </p>
+      {!secure && (
+        <div className="alert warn">
+          Η εφαρμογή σερβίρεται χωρίς HTTPS. Στο iPhone θα λειτουργεί, αλλά χωρίς το μενού «Κοινοποίηση» για αρχεία και χωρίς γρήγορο άνοιγμα όταν δεν υπάρχει σύνδεση. Δείτε στο README πώς να ενεργοποιήσετε HTTPS.
+        </div>
+      )}
+      {isIOS && !standalone && <p className="small">Είστε σε iPhone/iPad: ακολουθήστε τα βήματα παραπάνω τώρα.</p>}
     </div>
   );
 }

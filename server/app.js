@@ -60,7 +60,8 @@ export function createApp({ db, config, ai, log = console }) {
   // Στατικά αρχεία της εφαρμογής (μετά το build)
   const dist = path.resolve(here, '../dist');
   if (fs.existsSync(dist)) {
-    app.use(express.static(dist, { index: false, maxAge: '1h', setHeaders: (res, p) => p.endsWith('index.html') && res.setHeader('Cache-Control', 'no-cache') }));
+    const noCache = /(index\.html|sw\.js|manifest\.webmanifest)$/;
+    app.use(express.static(dist, { index: false, maxAge: '1h', setHeaders: (res, p) => noCache.test(p) && res.setHeader('Cache-Control', 'no-cache') }));
     app.get(/^(?!\/api\/).*/, (req, res) => {
       res.setHeader('Cache-Control', 'no-cache');
       res.sendFile(path.join(dist, 'index.html'));

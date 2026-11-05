@@ -1,4 +1,5 @@
 // Επικοινωνία με τον server.
+import { deliverFile } from './platform.js';
 
 export class ApiError extends Error {
   constructor(message, status, data) {
@@ -53,13 +54,11 @@ export async function download(url, { method = 'GET', body, fallbackName = 'expo
   const cd = res.headers.get('content-disposition') || '';
   const m = /filename\*=UTF-8''([^;]+)/.exec(cd);
   const name = m ? decodeURIComponent(m[1]) : fallbackName;
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = name;
-  document.body.appendChild(a);
-  a.click();
-  setTimeout(() => {
-    URL.revokeObjectURL(a.href);
-    a.remove();
-  }, 2000);
+  deliverFile(blob, name);
+}
+
+/** Φέρνει αρχείο της εφαρμογής (π.χ. παραστατικό) ως Blob, με τη σύνδεση του χρήστη. */
+export async function fetchBlob(url) {
+  const res = await request('GET', url, undefined, { raw: true });
+  return res.blob();
 }

@@ -49,7 +49,21 @@ function watch(page, label) {
   });
 }
 const step = (s) => console.log(`• ${s}`);
-const shot = (page, name) => page.screenshot({ path: path.join(outDir, `${name}.png`), fullPage: true });
+// Όπως στο κινητό: κλείσιμο πληκτρολογίου (πάτημα «Τέλος») πριν από τις κάτω μπάρες.
+const doneTyping = async (p) => {
+  await p.evaluate(() => document.activeElement?.blur());
+  await p.waitForTimeout(120);
+};
+const nav = async (p, label) => {
+  await doneTyping(p);
+  await p.locator('.bottomnav').getByText(label).click();
+};
+// Στιγμιότυπο οθόνης + έλεγχος ότι η σελίδα δεν είναι πλατύτερη από την οθόνη (σημαντικό στο iPhone).
+const shot = async (page, name) => {
+  const over = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  if (over > 1) errors.push(`[${name}] η σελίδα ξεπερνά το πλάτος της οθόνης κατά ${over}px`);
+  await page.screenshot({ path: path.join(outDir, `${name}.png`), fullPage: true });
+};
 
 async function run() {
   await waitUp();
@@ -72,7 +86,7 @@ async function run() {
   await shot(m, 'm01-home');
 
   step('Υλικά: αναζήτηση χωρίς τόνους');
-  await m.locator('.bottomnav').getByText('Υλικά').click();
+  await nav(m, 'Υλικά');
   await m.getByPlaceholder(/Αναζήτηση/).fill('κρεμα 35');
   await m.locator('.list-item', { hasText: 'Κρέμα γάλακτος 35%' }).waitFor();
   if (await m.locator('.list-item', { hasText: 'Κρέμα γάλακτος 48%' }).count()) throw new Error('Η αναζήτηση έφερε και την 48%');
@@ -84,7 +98,7 @@ async function run() {
   await shot(m, 'm03-material-detail');
 
   step('Συνταγή: πραγματική απόδοση 2.000 g');
-  await m.locator('.bottomnav').getByText('Συνταγές').click();
+  await nav(m, 'Συνταγές');
   await m.locator('.list-item', { hasText: 'Μους σοκολάτας' }).click();
   await m.getByText('Τελική απόδοση', { exact: true }).waitFor();
   const costText = await m.locator('.costbox .big').first().innerText();
@@ -92,7 +106,7 @@ async function run() {
   await shot(m, 'm04-recipe');
 
   step('Προϊόν: ποτηράκι μους');
-  await m.locator('.bottomnav').getByText('Προϊόντα').click();
+  await nav(m, 'Προϊόντα');
   await m.locator('.list-item', { hasText: 'Ποτηράκι μους σοκολάτας' }).click();
   await m.getByText('Αναλυτικά ανά τεμάχιο').waitFor();
   await shot(m, 'm05-product');
@@ -106,7 +120,7 @@ async function run() {
   await shot(m, 'm06-production');
 
   step('Χειροκίνητο τιμολόγιο: 4 × 2,5 kg βούτυρο, 90 € → 9 €/kg');
-  await m.locator('.bottomnav').getByText('Τιμολόγια').click();
+  await nav(m, 'Τιμολόγια');
   await m.getByRole('button', { name: /Αρχεία/ }).click();
   await m.getByRole('button', { name: /Χειροκίνητη καταχώριση/ }).click();
   await m.getByText('Στοιχεία παραστατικού').waitFor();
@@ -127,6 +141,7 @@ async function run() {
   await line.getByText('9,00 €/kg').waitFor();
   await line.getByText('10 kg').first().waitFor();
   await shot(m, 'm07-invoice-line');
+  await doneTyping(m);
   await m.getByRole('button', { name: /Επιβεβαίωση τιμών/ }).click();
   await m.getByText('Οι τιμές ενημερώθηκαν').waitFor();
   await m.getByText('Επηρεαζόμενα κοστολόγια').waitFor();
@@ -134,7 +149,7 @@ async function run() {
   await m.getByRole('button', { name: 'Κλείσιμο' }).last().click();
 
   step('Ιστορικό μεταβολών');
-  await m.locator('.bottomnav').getByText('Μενού').click();
+  await nav(m, 'Μενού');
   await m.locator('.modal').getByText('Ιστορικό').click();
   await m.getByText('Επιβεβαίωση παραστατικού').first().waitFor();
   await shot(m, 'm09-history');
@@ -198,9 +213,106 @@ async function run() {
 
   step('Υπολογιστής: ρυθμίσεις');
   await d.locator('.sidebar').getByText('Ρυθμίσεις').click();
-  await d.getByText('Αντίγραφα ασφαλείας').waitFor();
+  await d.getByRole('heading', { name: 'Αντίγραφα ασφαλείας' }).waitFor();
   await shot(d, 'd07-settings');
+  // PDF δύο σελίδων για τη δοκιμή προβολής στο iPhone
+  await d.setContent('<h1 style="font:40px sans-serif">Σελίδα 1 — ΒΟΥΤΥΡΟ 82% 2,5KG</h1><div style="break-after:page"></div><h1 style="font:40px sans-serif">Σελίδα 2 — ΣΥΝΟΛΟ 90,00</h1>');
+  const pdf = await d.pdf({ format: 'A4' });
   await dctx.close();
+
+  // ---------- iPhone (προσομοίωση) ----------
+  step('iPhone: οδηγία εγκατάστασης, εικονίδια, οθόνες εκκίνησης');
+  const ictx = await browser.newContext({ ...devices['iPhone 13'], locale: 'el-GR' });
+  const i = await ictx.newPage();
+  watch(i, 'iphone');
+  await i.goto(base);
+  await i.getByText('Σύνδεση').first().waitFor();
+  await shot(i, 'i00-login');
+  await i.locator('input').nth(0).fill('maria');
+  await i.locator('input[type=password]').fill('kodikos123');
+  await i.getByRole('button', { name: 'Είσοδος' }).click();
+  await i.getByText('Ελλιπή κοστολόγια').waitFor();
+  await i.getByText('Εγκατάσταση στο iPhone').waitFor();
+  await shot(i, 'i01-home-hint');
+  const head = await i.evaluate(() => ({
+    touch: document.querySelector('link[rel=apple-touch-icon]')?.href,
+    capable: document.querySelector('meta[name=apple-mobile-web-app-capable]')?.content,
+    status: document.querySelector('meta[name=apple-mobile-web-app-status-bar-style]')?.content,
+    splash: [...document.querySelectorAll('link[rel=apple-touch-startup-image]')].map((l) => l.href),
+  }));
+  if (head.capable !== 'yes' || head.status !== 'black-translucent') throw new Error('Λείπουν οι ρυθμίσεις iOS');
+  if (head.splash.length < 15) throw new Error('Λείπουν οθόνες εκκίνησης');
+  for (const u of [head.touch, head.splash[0], `${base}/manifest.webmanifest`]) {
+    const r = await fetch(u);
+    if (!r.ok) throw new Error(`Δεν βρέθηκε ${u}`);
+  }
+  const manifest = await (await fetch(`${base}/manifest.webmanifest`)).json();
+  if (manifest.display !== 'standalone') throw new Error('manifest: όχι standalone');
+  await i.locator('.install-hint').getByRole('button', { name: 'Απόκρυψη' }).click();
+  await i.reload();
+  await i.getByText('Ελλιπή κοστολόγια').waitFor();
+  if (await i.locator('.install-hint').count()) throw new Error('Η οδηγία εγκατάστασης εμφανίστηκε ξανά');
+
+  step('iPhone: άνοιγμα χωρίς σύνδεση με τον server (service worker)');
+  await i.evaluate(() => navigator.serviceWorker.ready.then(() => true));
+  await i.reload(); // ο service worker ελέγχει πλέον τη σελίδα
+  await i.getByText('Ελλιπή κοστολόγια').waitFor();
+  await ictx.setOffline(true);
+  await i.reload();
+  await i.getByText('Δεν υπάρχει σύνδεση με τον server').waitFor();
+  await shot(i, 'i02-offline');
+  await ictx.setOffline(false);
+  await i.getByRole('button', { name: 'Δοκιμή ξανά' }).click();
+  await i.getByText('Ελλιπή κοστολόγια').waitFor();
+
+  step('iPhone: PDF δύο σελίδων εμφανίζεται ολόκληρο μέσα στην εφαρμογή');
+  await i.goto(`${base}/#/invoices/new`);
+  await i.getByText('Νέο τιμολόγιο').waitFor();
+  await i.locator('input[type=file][multiple]').setInputFiles({ name: 'τιμολόγιο.pdf', mimeType: 'application/pdf', buffer: pdf });
+  await i.locator('.doc-thumb').first().waitFor();
+  await i.getByRole('button', { name: /Αποθήκευση χωρίς ανάγνωση/ }).click();
+  await i.getByText('Στοιχεία παραστατικού').waitFor();
+  await i.locator('img.pdf-page').nth(1).waitFor({ timeout: 20000 });
+  const pages = await i.locator('img.pdf-page').count();
+  if (pages !== 2) throw new Error(`Εμφανίστηκαν ${pages} σελίδες PDF αντί για 2`);
+  if (await i.locator('iframe').count()) throw new Error('Χρήση iframe για PDF στο iPhone');
+  await shot(i, 'i03-pdf');
+
+  step('iPhone: πληκτρολόγιο ανοιχτό → οι κάτω μπάρες κρύβονται');
+  await i.locator('.field', { hasText: 'Αριθμός' }).locator('input').focus();
+  await i.waitForTimeout(100);
+  if (await i.locator('.bottomnav').isVisible()) throw new Error('Η κάτω μπάρα δεν κρύφτηκε με το πληκτρολόγιο');
+  await i.locator('.field', { hasText: 'Αριθμός' }).locator('input').blur();
+  await i.waitForTimeout(150);
+  if (!(await i.locator('.bottomnav').isVisible())) throw new Error('Η κάτω μπάρα δεν επανήλθε');
+  await i.getByRole('button', { name: /Αποθήκευση \/ Κοινοποίηση/ }).first().click();
+  await i.getByText('Το αρχείο είναι έτοιμο').waitFor();
+  await i.getByRole('button', { name: 'Κλείσιμο' }).click();
+  i.once('dialog', (dlg) => dlg.accept());
+
+  step('iPhone: εξαγωγή Excel → παράθυρο «Αποθήκευση / Κοινοποίηση»');
+  await i.goto(`${base}/#/settings`);
+  await i.getByText('Εφαρμογή στο iPhone / iPad').waitFor();
+  await i.locator('.list-item', { hasText: 'Υλικά & ενεργές τιμές' }).getByRole('button', { name: 'Excel' }).click();
+  await i.getByText('Το αρχείο είναι έτοιμο').waitFor();
+  await i.getByText(/ylika-.*\.xlsx/).waitFor();
+  await shot(i, 'i04-file-ready');
+  await ictx.close();
+
+  step('iPhone: εγκατεστημένη εφαρμογή (πλήρης οθόνη) → κουμπί ανανέωσης, χωρίς οδηγία');
+  const sctx = await browser.newContext({ ...devices['iPhone 13'], locale: 'el-GR' });
+  await sctx.addInitScript(() => Object.defineProperty(window.navigator, 'standalone', { get: () => true }));
+  const st = await sctx.newPage();
+  watch(st, 'standalone');
+  await st.goto(base);
+  await st.locator('input').nth(0).fill('maria');
+  await st.locator('input[type=password]').fill('kodikos123');
+  await st.getByRole('button', { name: 'Είσοδος' }).click();
+  await st.getByText('Ελλιπή κοστολόγια').waitFor();
+  if (await st.locator('.install-hint').count()) throw new Error('Οδηγία εγκατάστασης ενώ είναι εγκατεστημένη');
+  await st.getByRole('button', { name: 'Ανανέωση' }).waitFor();
+  await shot(st, 'i05-standalone');
+  await sctx.close();
   await browser.close();
 }
 

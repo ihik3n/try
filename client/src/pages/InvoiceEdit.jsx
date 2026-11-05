@@ -1,6 +1,8 @@
 // Πίνακας ελέγχου παραστατικού: διόρθωση και επιβεβαίωση κάθε γραμμής πριν την ενημέρωση τιμών.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { api } from '../api.js';
+import { api, fetchBlob } from '../api.js';
+import { needsPdfRenderer, isStandalone, deliverFile } from '../platform.js';
+import { PdfView } from '../components/PdfView.jsx';
 import { useStore, useAction } from '../store.jsx';
 import { PageHead, Field, NumberInput, TextInput, Select, Badge, SampleBadge, Spinner, Modal, DiffText, Link } from '../ui.jsx';
 import { Icon } from '../icons.jsx';
@@ -516,15 +518,22 @@ function DocViewer({ files, idx, setIdx, onRemove }) {
         <div className="zoomwrap">
           <img src={url} alt={f.original_name} className={zoom ? 'zoomed' : ''} onClick={() => setZoom((z) => !z)} />
         </div>
+      ) : needsPdfRenderer ? (
+        <PdfView key={f.id} url={url} />
       ) : (
-        <>
-          <iframe src={url} title={f.original_name} />
-        </>
+        <iframe src={url} title={f.original_name} />
       )}
       <div className="row" style={{ marginTop: '.4rem', alignItems: 'center' }}>
-        <a className="btn small" href={url} target="_blank" rel="noreferrer">
-          Άνοιγμα σε νέα καρτέλα
-        </a>
+        {isStandalone() || needsPdfRenderer ? (
+          // Στην εγκατεστημένη εφαρμογή του iPhone μια νέα καρτέλα ανοίγει στο Safari χωρίς σύνδεση· γι' αυτό «Κοινοποίηση».
+          <button className="btn small" onClick={() => fetchBlob(url).then((b) => deliverFile(b, f.original_name || `parastatiko-${f.id}`))}>
+            <Icon name="download" /> Αποθήκευση / Κοινοποίηση
+          </button>
+        ) : (
+          <a className="btn small" href={url} target="_blank" rel="noreferrer">
+            Άνοιγμα σε νέα καρτέλα
+          </a>
+        )}
         <span className="small muted" style={{ flex: 1 }}>
           {f.original_name}
         </span>

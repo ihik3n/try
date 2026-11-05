@@ -2,6 +2,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from './api.js';
 import { createEngine } from '@shared/costing.js';
+import { canShareFile, saveWithAnchor } from './platform.js';
 
 const Ctx = createContext(null);
 
@@ -10,7 +11,15 @@ export function StoreProvider({ children }) {
   const [error, setError] = useState(null);
   const [toasts, setToasts] = useState([]);
   const [dialog, setDialog] = useState(null);
+  const [readyFile, setReadyFile] = useState(null);
   const loadingRef = useRef(null);
+
+  // Αρχεία προς αποθήκευση σε iPhone/iPad: εμφανίζεται το μενού «Κοινοποίηση» με πάτημα του χρήστη.
+  useEffect(() => {
+    const onReady = (e) => setReadyFile(e.detail.file);
+    window.addEventListener('app:file-ready', onReady);
+    return () => window.removeEventListener('app:file-ready', onReady);
+  }, []);
 
   const reload = useCallback(async () => {
     if (loadingRef.current) return loadingRef.current;
@@ -77,6 +86,7 @@ export function StoreProvider({ children }) {
           </div>
         ))}
       </div>
+      {readyFile && <FileReady file={readyFile} onClose={() => setReadyFile(null)} />}
       {dialog && (
         <div className="overlay" onClick={() => (dialog.resolve(false), setDialog(null))}>
           <div className="modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
@@ -124,4 +134,44 @@ export function useAction() {
     [toast],
   );
   return [run, busy];
+}
+
+function FileReady({ file, onClose }) {
+  const shareable = canShareFile(file);
+  const [error, setError] = useState('');
+  const share = async () => {
+    try {
+      await navigator.share({ files: [file], title: file.name });
+      onClose();
+    } catch (e) {
+      if (e?.name !== 'AbortError') setError('Δεν ήταν δυνατή η κοινοποίηση. Δοκιμάστε «Άνοιγμα».');
+    }
+  };
+  return (
+    <div className="overlay" onClick={onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+        <div className="modal-head">
+          <h2>Το αρχείο είναι έτοιμο</h2>
+        </div>
+        <p className="strong" style={{ overflowWrap: 'anywhere' }}>{file.name}</p>
+        <p className="small muted">
+          {shareable ? 'Πατήστε «Αποθήκευση / Κοινοποίηση» και επιλέξτε «Αποθήκευση στα Αρχεία», Mail, AirDrop ή «Εκτύπωση».' : 'Πατήστε «Άνοιγμα» για προβολή ή αποθήκευση.'}
+        </p>
+        {error && <div className="alert danger">{error}</div>}
+        <div className="modal-foot">
+          <button className="btn" onClick={onClose}>
+            Κλείσιμο
+          </button>
+          <button className={`btn ${shareable ? '' : 'primary'}`} onClick={() => (saveWithAnchor(file), onClose())}>
+            Άνοιγμα
+          </button>
+          {shareable && (
+            <button className="btn primary" onClick={share} autoFocus>
+              Αποθήκευση / Κοινοποίηση
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }

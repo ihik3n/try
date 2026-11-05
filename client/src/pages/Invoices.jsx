@@ -81,18 +81,37 @@ export function Invoices() {
   );
 }
 
+/** Αποκωδικοποίηση εικόνας με σωστό προσανατολισμό (EXIF). Εναλλακτικά μέσω <img> για παλαιότερα iPhone. */
+async function decodeImage(file) {
+  try {
+    return await createImageBitmap(file, { imageOrientation: 'from-image' });
+  } catch {
+    const url = URL.createObjectURL(file);
+    try {
+      const img = new Image();
+      img.src = url;
+      await img.decode();
+      return img; // το Safari εφαρμόζει μόνο του τον προσανατολισμό EXIF στις εικόνες
+    } finally {
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+  }
+}
+
 /** Σμίκρυνση φωτογραφίας στο κινητό (μέγιστη πλευρά 2576 px, JPEG) για γρήγορη αποστολή. */
 async function compressImage(file) {
   if (!file.type.startsWith('image/') || file.type === 'image/gif') return file;
   try {
-    const bmp = await createImageBitmap(file, { imageOrientation: 'from-image' });
+    const decoded = await decodeImage(file);
+    const bmp = { width: decoded.naturalWidth || decoded.width, height: decoded.naturalHeight || decoded.height };
     const max = 2576;
     const scale = Math.min(1, max / Math.max(bmp.width, bmp.height));
     if (scale === 1 && file.size < 2.5 * 1024 * 1024 && ['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) return file;
     const canvas = document.createElement('canvas');
     canvas.width = Math.round(bmp.width * scale);
     canvas.height = Math.round(bmp.height * scale);
-    canvas.getContext('2d').drawImage(bmp, 0, 0, canvas.width, canvas.height);
+    canvas.getContext('2d').drawImage(decoded, 0, 0, canvas.width, canvas.height);
+    decoded.close?.();
     const blob = await new Promise((r) => canvas.toBlob(r, 'image/jpeg', 0.86));
     if (!blob) return file;
     return new File([blob], file.name.replace(/\.\w+$/, '') + '.jpg', { type: 'image/jpeg' });

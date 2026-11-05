@@ -5,6 +5,7 @@ import { useRoute, match, navigate } from './router.js';
 import { Link, Spinner, Modal } from './ui.jsx';
 import { Icon } from './icons.jsx';
 import { BASIS_LABEL } from './format.js';
+import { isIOS, isStandalone, isTouch } from './platform.js';
 import { Login } from './pages/Login.jsx';
 import { Home } from './pages/Home.jsx';
 import { Invoices, NewInvoice } from './pages/Invoices.jsx';
@@ -73,10 +74,42 @@ function isActive(item, path) {
   return item.exact ? path === item.to : path === item.to || path.startsWith(item.to + '/');
 }
 
+const HINT_KEY = 'ios-install-hint-dismissed';
+function readHintDismissed() {
+  try {
+    return localStorage.getItem(HINT_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+/** Κρύβει τις κάτω μπάρες όταν το πληκτρολόγιο είναι ανοιχτό σε κινητό (περισσότερος χώρος για πληκτρολόγηση). */
+function useKeyboardClass() {
+  useEffect(() => {
+    if (!isTouch()) return;
+    const typing = (el) => el && (el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || (el.tagName === 'INPUT' && !['checkbox', 'radio', 'file', 'button', 'submit'].includes(el.type)));
+    const onIn = (e) => typing(e.target) && document.body.classList.add('kbd');
+    const onOut = () =>
+      setTimeout(() => {
+        if (!typing(document.activeElement)) document.body.classList.remove('kbd');
+      }, 50);
+    document.addEventListener('focusin', onIn);
+    document.addEventListener('focusout', onOut);
+    return () => {
+      document.removeEventListener('focusin', onIn);
+      document.removeEventListener('focusout', onOut);
+      document.body.classList.remove('kbd');
+    };
+  }, []);
+}
+
 function Shell({ onLogout }) {
   const { catalog, error, reload } = useStore();
   const { path, query } = useRoute();
   const [menu, setMenu] = useState(false);
+  const [hintDismissed, setHintDismissed] = useState(readHintDismissed);
+  const standalone = isStandalone();
+  useKeyboardClass();
 
   if (!catalog) {
     return (
@@ -111,10 +144,36 @@ function Shell({ onLogout }) {
         <span className="basis" title="Βάση κοστολόγησης (Ρυθμίσεις)">
           {BASIS_LABEL[catalog.settings.vat_basis]}
         </span>
+        {standalone && (
+          <button onClick={() => window.location.reload()} title="Ανανέωση" aria-label="Ανανέωση">
+            <Icon name="refresh" />
+          </button>
+        )}
         <button onClick={logout} title="Αποσύνδεση" aria-label="Αποσύνδεση">
           <Icon name="logout" />
         </button>
       </header>
+      {isIOS && !standalone && !hintDismissed && (
+        <div className="install-hint no-print" role="note">
+          <span>
+            <b>Εγκατάσταση στο iPhone:</b> πατήστε <ShareGlyph /> «Κοινοποίηση» και μετά <b>«Προσθήκη στην αρχική οθόνη»</b>.
+          </span>
+          <button
+            className="iconbtn"
+            aria-label="Απόκρυψη"
+            onClick={() => {
+              try {
+                localStorage.setItem(HINT_KEY, '1');
+              } catch {
+                /* ιδιωτική περιήγηση */
+              }
+              setHintDismissed(true);
+            }}
+          >
+            <Icon name="x" />
+          </button>
+        </div>
+      )}
       {catalog.has_sample && (
         <div className="sample-banner no-print">
           <span>
@@ -205,5 +264,14 @@ function Routes({ path, query }) {
       <p>Η σελίδα δεν βρέθηκε.</p>
       <Link to="/">Αρχική</Link>
     </div>
+  );
+}
+
+/** Το εικονίδιο «Κοινοποίηση» του Safari (τετράγωνο με βέλος). */
+function ShareGlyph() {
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: '-3px' }} aria-label="Κοινοποίηση">
+      <path d="M12 3v12M8 7l4-4 4 4M6 11H5v10h14V11h-1" />
+    </svg>
   );
 }
