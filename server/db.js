@@ -1,4 +1,102 @@
-import Database from 'better-sqlite3';
+import { createRequire } from 'node:module';
+
+// Χρησιμοποιείται η SQLite που είναι ενσωματωμένη στο Node.js (node:sqlite): καμία μεταγλώττιση
+// κατά την εγκατάσταση, άρα δουλεύει σε Windows/macOS/Linux χωρίς Visual Studio ή άλλα εργαλεία.
+const require = createRequire(import.meta.url);
+function loadSqlite() {
+  // Αποκρύπτεται μόνο η προειδοποίηση «experimental» που τυπώνουν ορισμένες εκδόσεις του Node.
+  const original = process.emitWarning;
+  process.emitWarning = function (warning, ...args) {
+    const msg = typeof warning === 'string' ? warning : warning?.message;
+    if (msg && msg.includes('SQLite is an experimental feature')) return;
+    return original.call(this, warning, ...args);
+  };
+  try {
+    return require('node:sqlite');
+  } catch {
+    throw new Error('Η εφαρμογή χρειάζεται Node.js 22.13 ή νεότερο (ενσωματωμένη SQLite). Εγκαταστήστε την τελευταία έκδοση LTS από το nodejs.org.');
+  } finally {
+    process.emitWarning = original;
+  }
+}
+const { DatabaseSync } = loadSqlite();
+
+const PARAM_RE = /[@:$]([A-Za-z_][A-Za-z0-9_]*)/g;
+const toValue = (v) => (v === undefined ? null : typeof v === 'boolean' ? (v ? 1 : 0) : v);
+const plain = (row) => (row ? { ...row } : row);
+
+class Statement {
+  constructor(raw, sql) {
+    this.raw = raw;
+    this.names = new Set([...sql.matchAll(PARAM_RE)].map((m) => m[1]));
+  }
+  args(params) {
+    if (params.length === 1 && params[0] && typeof params[0] === 'object' && !Array.isArray(params[0]) && !(params[0] instanceof Uint8Array)) {
+      // Ονομαστικές παράμετροι: κρατούνται μόνο όσες χρησιμοποιεί η εντολή.
+      const named = {};
+      for (const k of this.names) if (k in params[0]) named[k] = toValue(params[0][k]);
+      return [named];
+    }
+    return params.map(toValue);
+  }
+  run(...params) {
+    const r = this.raw.run(...this.args(params));
+    return { changes: Number(r.changes), lastInsertRowid: Number(r.lastInsertRowid) };
+  }
+  get(...params) {
+    return plain(this.raw.get(...this.args(params)));
+  }
+  all(...params) {
+    return this.raw.all(...this.args(params)).map(plain);
+  }
+}
+
+/** Μικρό στρώμα συμβατότητας με το API που χρησιμοποιεί η εφαρμογή (prepare/exec/pragma/transaction). */
+class Database {
+  constructor(file) {
+    this.raw = new DatabaseSync(file);
+    this.depth = 0;
+  }
+  prepare(sql) {
+    return new Statement(this.raw.prepare(sql), sql);
+  }
+  exec(sql) {
+    this.raw.exec(sql);
+  }
+  close() {
+    this.raw.close();
+  }
+  pragma(text, opts = {}) {
+    const rows = this.raw.prepare(`PRAGMA ${text}`).all().map(plain);
+    if (opts.simple) return rows[0] ? Object.values(rows[0])[0] : undefined;
+    return rows;
+  }
+  /** Επιστρέφει συνάρτηση που εκτελεί το fn σε συναλλαγή (εμφωλευμένες κλήσεις με savepoints). */
+  transaction(fn) {
+    const db = this;
+    return function (...args) {
+      const nested = db.depth > 0;
+      const sp = `sp_${db.depth}`;
+      db.raw.exec(nested ? `SAVEPOINT ${sp}` : 'BEGIN');
+      db.depth++;
+      try {
+        const result = fn.apply(this, args);
+        db.raw.exec(nested ? `RELEASE ${sp}` : 'COMMIT');
+        return result;
+      } catch (err) {
+        try {
+          if (nested) db.raw.exec(`ROLLBACK TO ${sp}; RELEASE ${sp}`);
+          else db.raw.exec('ROLLBACK');
+        } catch {
+          /* η συναλλαγή έχει ήδη ακυρωθεί */
+        }
+        throw err;
+      } finally {
+        db.depth--;
+      }
+    };
+  }
+}
 
 // Σειρά πινάκων: γονικοί πριν από τα εξαρτώμενα (χρησιμοποιείται σε αντίγραφα/επαναφορά).
 export const TABLES = [

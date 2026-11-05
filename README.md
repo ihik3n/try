@@ -35,7 +35,7 @@ docker compose up -d --build
 
 ### Β. Σε υπολογιστή του καταστήματος (Windows / macOS / Linux)
 
-Χρειάζεται [Node.js 22](https://nodejs.org/) ή νεότερο.
+Χρειάζεται [Node.js](https://nodejs.org/) 22.13 ή νεότερο (η βάση SQLite είναι ενσωματωμένη, δεν χρειάζεται Visual Studio ή άλλα εργαλεία).
 
 **Windows, ο απλούστερος τρόπος:** διπλό κλικ στο `start-windows.bat`. Την πρώτη φορά εγκαθιστά ό,τι χρειάζεται και μετά ανοίγει την εφαρμογή στον browser. Το παράθυρο πρέπει να μένει ανοιχτό όσο τη χρησιμοποιείτε. Αν τα Windows ρωτήσουν για το Τείχος προστασίας, επιτρέψτε την πρόσβαση στα «Ιδιωτικά δίκτυα», ώστε να ανοίγει και από το iPhone.
 
@@ -138,7 +138,7 @@ npm run ios-assets   # αναδημιουργία εικονιδίων/οθον�
 
 ```
 shared/      υπολογισμοί (μονάδες, τιμολόγια, κοστολόγηση, παραγωγή) — κοινοί για server και browser
-server/      Express + SQLite (better-sqlite3), πρόσβαση, API, AI, αντίγραφα, εξαγωγές
+server/      Express + SQLite (ενσωματωμένη στο Node.js), πρόσβαση, API, AI, αντίγραφα, εξαγωγές
 client/      React (Vite), ελληνικό περιβάλλον, mobile-first
 test/        tests μονάδων και API
 scripts/     dev server, e2e
