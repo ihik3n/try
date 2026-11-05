@@ -197,7 +197,9 @@ export function NewInvoice({ capture }) {
             {busy ? <Spinner /> : <Icon name="check" />} Ανάγνωση {files.length > 1 ? `(${files.length} σελίδες)` : ''}
           </button>
         ) : (
-          <div className="alert info">Η αυτόματη ανάγνωση δεν είναι ενεργή (δεν έχει οριστεί κλειδί AI στον server). Το παραστατικό θα αποθηκευτεί και θα συμπληρώσετε τις γραμμές χειροκίνητα.</div>
+          <div className="alert info">
+            Η αυτόματη ανάγνωση δεν είναι ενεργή. Ενεργοποιήστε την από τις <Link to="/settings">Ρυθμίσεις → Αυτόματη ανάγνωση τιμολογίων</Link>. Μέχρι τότε, το παραστατικό αποθηκεύεται και συμπληρώνετε τις γραμμές χειροκίνητα.
+          </div>
         )}
         <div className="row" style={{ marginTop: '.6rem' }}>
           <button className="btn" style={{ flex: 1 }} disabled={busy || preparing} onClick={() => submit(false)}>

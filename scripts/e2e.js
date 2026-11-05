@@ -220,6 +220,10 @@ async function run() {
   step('Υπολογιστής: ρυθμίσεις');
   await d.locator('.sidebar').getByText('Ρυθμίσεις').click();
   await d.getByRole('heading', { name: 'Αντίγραφα ασφαλείας' }).waitFor();
+  await d.getByRole('heading', { name: 'Αυτόματη ανάγνωση τιμολογίων' }).waitFor();
+  await d.locator('#ai input[type=password]').fill('λάθος-κλειδί');
+  await d.locator('#ai').getByRole('button', { name: /Αποθήκευση & δοκιμή/ }).click();
+  await d.getByText(/Το κλειδί πρέπει να ξεκινά με/).waitFor();
   await shot(d, 'd07-settings');
   // PDF δύο σελίδων για τη δοκιμή προβολής στο iPhone
   await d.setContent('<h1 style="font:40px sans-serif">Σελίδα 1 — ΒΟΥΤΥΡΟ 82% 2,5KG</h1><div style="break-after:page"></div><h1 style="font:40px sans-serif">Σελίδα 2 — ΣΥΝΟΛΟ 90,00</h1>');

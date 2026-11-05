@@ -125,8 +125,9 @@ export function useAction() {
         if (okMessage) toast(okMessage, 'ok');
         return r;
       } catch (e) {
+        // Το σφάλμα εμφανίζεται στον χρήστη· δεν προωθείται (αποφυγή «ανεπίλυτων» σφαλμάτων στον browser).
         toast(e.message || 'Σφάλμα', 'error', 6000);
-        throw e;
+        return undefined;
       } finally {
         setBusy(false);
       }

@@ -13,7 +13,7 @@ export async function startServer({ seed = false, ai = { enabled: false, model: 
   const config = loadConfig({ dataDir: dir, seedSample: false, cookieSecure: false });
   const db = openDb(config.dbPath);
   if (seed) seedSampleData(db);
-  const app = createApp({ db, config, ai, log: silent });
+  const app = createApp({ db, config, ai: typeof ai === 'function' ? ai(db, config) : ai, log: silent });
   const server = await new Promise((resolve) => {
     const s = app.listen(0, '127.0.0.1', () => resolve(s));
   });

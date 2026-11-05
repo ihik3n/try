@@ -68,7 +68,7 @@ export function coreRoutes({ db, ai }) {
       recipe_categories: [...new Set(c.recipes.map((x) => x.category).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'el')),
       product_categories: [...new Set(c.products.map((x) => x.category).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'el')),
       has_sample: hasSampleData(db),
-      ai: { enabled: ai.enabled, model: ai.model },
+      ai: ai.status ? ai.status() : { enabled: ai.enabled, model: ai.model },
       user: req.user,
       drafts: db.prepare("SELECT COUNT(*) c FROM invoices WHERE status = 'draft'").get().c,
     });
@@ -89,6 +89,24 @@ export function coreRoutes({ db, ai }) {
     }
     setSettings(db, patch);
     res.json(getSettings(db));
+  });
+
+  // ---- Κλειδί αυτόματης ανάγνωσης (AI) ----
+  r.put('/settings/ai-key', async (req, res) => {
+    if (!ai.saveKey) throw new HttpError(400, 'Δεν υποστηρίζεται.');
+    try {
+      res.json(await ai.saveKey(req.body?.key));
+    } catch (err) {
+      throw new HttpError(400, err.message);
+    }
+  });
+  r.delete('/settings/ai-key', (req, res) => {
+    if (!ai.removeKey) throw new HttpError(400, 'Δεν υποστηρίζεται.');
+    try {
+      res.json(ai.removeKey());
+    } catch (err) {
+      throw new HttpError(400, err.message);
+    }
   });
 
   // ---- Χρήστες ----

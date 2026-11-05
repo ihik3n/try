@@ -58,19 +58,10 @@ export function Settings() {
               </button>
             </div>
           </Field>
-          <div className="divider" />
-          <h3>Ανάγνωση παραστατικών (AI)</h3>
-          {catalog.ai?.enabled ? (
-            <p>
-              <Badge kind="ok">Ενεργή</Badge> Μοντέλο: <code>{catalog.ai.model}</code>
-            </p>
-          ) : (
-            <div className="alert info">Ανενεργή. Για αυτόματη ανάγνωση φωτογραφιών/PDF ορίστε τη μεταβλητή <code>ANTHROPIC_API_KEY</code> στον server (βλ. README). Η χειροκίνητη καταχώριση λειτουργεί κανονικά.</div>
-          )}
-          <p className="small muted">Η AI χρησιμοποιείται μόνο για ανάγνωση και προτάσεις αντιστοίχισης. Όλοι οι υπολογισμοί γίνονται με ελεγμένους κανόνες στην εφαρμογή.</p>
         </div>
         <Exports />
       </div>
+      <AiCard />
       <InstallCard />
       <Backups />
       <div className="grid2">
@@ -428,6 +419,73 @@ function InstallCard() {
         </div>
       )}
       {isIOS && !standalone && <p className="small">Είστε σε iPhone/iPad: ακολουθήστε τα βήματα παραπάνω τώρα.</p>}
+    </div>
+  );
+}
+
+function AiCard() {
+  const { catalog, reload } = useStore();
+  const [run, busy] = useAction();
+  const [key, setKey] = useState('');
+  const ai = catalog.ai || {};
+  const save = () =>
+    run(async () => {
+      await api.put('/api/settings/ai-key', { key });
+      setKey('');
+      await reload();
+    }, 'Η αυτόματη ανάγνωση ενεργοποιήθηκε');
+  const remove = () =>
+    run(async () => {
+      await api.del('/api/settings/ai-key');
+      await reload();
+    }, 'Το κλειδί αφαιρέθηκε');
+  return (
+    <div className="card" id="ai">
+      <h2>Αυτόματη ανάγνωση τιμολογίων</h2>
+      {ai.enabled ? (
+        <>
+          <p>
+            <Badge kind="ok">Ενεργή</Badge> Οι φωτογραφίες και τα PDF τιμολογίων διαβάζονται αυτόματα (μοντέλο <code>{ai.model}</code>).
+          </p>
+          {ai.source === 'env' ? (
+            <p className="small muted">Το κλειδί έχει οριστεί στον server (μεταβλητή ANTHROPIC_API_KEY).</p>
+          ) : (
+            <div className="row" style={{ alignItems: 'center' }}>
+              <span className="small muted">Κλειδί: {ai.key_hint || '—'}</span>
+              <button className="btn small danger" onClick={remove} disabled={busy}>
+                Αφαίρεση κλειδιού
+              </button>
+            </div>
+          )}
+        </>
+      ) : (
+        <>
+          <p>
+            Η εφαρμογή διαβάζει από τη φωτογραφία ή το PDF τον προμηθευτή, τις γραμμές, τις ποσότητες, τις συσκευασίες, τις τιμές και τον ΦΠΑ, και προτείνει τα αντίστοιχα υλικά. Για να λειτουργήσει χρειάζεται κλειδί από την Anthropic (την εταιρεία του Claude):
+          </p>
+          <ol style={{ paddingLeft: '1.2rem', margin: '0 0 .75rem' }}>
+            <li>
+              Μπείτε στο <b>console.anthropic.com</b> και δημιουργήστε λογαριασμό.
+            </li>
+            <li>
+              Στο <b>Billing</b> προσθέστε πίστωση (π.χ. 5–10 $). Χρεώνεστε μόνο όσο χρησιμοποιείτε.
+            </li>
+            <li>
+              Στο <b>API Keys</b> πατήστε <b>Create Key</b>, δώστε ένα όνομα (π.χ. «Κοστολόγηση») και αντιγράψτε το κλειδί. Ξεκινά με <code>sk-ant-</code>.
+            </li>
+            <li>Επικολλήστε το παρακάτω και πατήστε «Αποθήκευση & δοκιμή».</li>
+          </ol>
+          <div className="row" style={{ flexWrap: 'nowrap' }}>
+            <input className="input" type="password" autoComplete="off" spellCheck={false} placeholder="sk-ant-…" value={key} onChange={(e) => setKey(e.target.value)} />
+            <button className="btn primary" onClick={save} disabled={busy || !key.trim()}>
+              Αποθήκευση & δοκιμή
+            </button>
+          </div>
+        </>
+      )}
+      <p className="small muted" style={{ marginTop: '.75rem' }}>
+        Κόστος: περίπου 0,10–0,30 $ ανά τιμολόγιο (εκτίμηση· εξαρτάται από τις σελίδες και τις γραμμές). Την πραγματική χρέωση τη βλέπετε στο console.anthropic.com. Οι φωτογραφίες/PDF στέλνονται στην Anthropic μόνο για ανάγνωση. Το κλειδί μένει αποθηκευμένο μόνο στον υπολογιστή της εφαρμογής, δεν ξαναεμφανίζεται και δεν μπαίνει στα αντίγραφα ασφαλείας. Η AI μόνο διαβάζει και προτείνει· όλοι οι υπολογισμοί γίνονται από την εφαρμογή και κάθε γραμμή την ελέγχετε εσείς πριν ενημερωθούν οι τιμές.
+      </p>
     </div>
   );
 }

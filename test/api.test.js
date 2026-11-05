@@ -2,6 +2,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { startServer, loggedIn } from './helpers.js';
 import { createEngine } from '../shared/costing.js';
+import { unzipSync, strFromU8 } from 'fflate';
+import { createAiManager, AI_KEY_SECRET } from '../server/services/ai.js';
+import { getSecret, setSecret } from '../server/db.js';
 
 const close = (a, b, eps = 1e-9) => assert.ok(Math.abs(a - b) <= eps, `${a} ≉ ${b}`);
 
@@ -378,4 +381,53 @@ test('ανάγνωση με AI (εικονική υπηρεσία): πρόχει
   } finally {
     await s.close();
   }
+});
+
+test('κλειδί αυτόματης ανάγνωσης από τις Ρυθμίσεις: έλεγχος, αποθήκευση, όχι σε αντίγραφα', async () => {
+  const GOOD = 'sk-ant-api03-' + 'a'.repeat(40) + 'WXYZ';
+  const s = await loggedIn({
+    ai: (db, config) =>
+      createAiManager(
+        { ...config, anthropicApiKey: '' },
+        {
+          getKey: () => getSecret(db, AI_KEY_SECRET),
+          setKey: (k) => setSecret(db, AI_KEY_SECRET, k),
+          validateKey: async (k) => {
+            if (k !== GOOD) throw new Error('Το κλειδί δεν έγινε δεκτό από την Anthropic.');
+          },
+        },
+      ),
+  });
+  const { api } = s;
+  try {
+    let cat = await api.get('/api/catalog');
+    assert.equal(cat.ai.enabled, false);
+    const badFormat = await api.put('/api/settings/ai-key', { key: 'hello' }, { raw: true });
+    assert.equal(badFormat.status, 400);
+    assert.match(badFormat.data.error, /sk-ant-/);
+    const rejected = await api.put('/api/settings/ai-key', { key: 'sk-ant-api03-' + 'b'.repeat(40) }, { raw: true });
+    assert.equal(rejected.status, 400);
+    const ok = await api.put('/api/settings/ai-key', { key: `  ${GOOD} ` });
+    assert.equal(ok.enabled, true);
+    assert.equal(ok.source, 'settings');
+    assert.equal(ok.key_hint, '…WXYZ');
+    cat = await api.get('/api/catalog');
+    assert.equal(cat.ai.enabled, true);
+    assert.ok(!JSON.stringify(cat).includes(GOOD), 'το κλειδί δεν επιστρέφεται ποτέ στην εφαρμογή');
+    const zip = await api.get('/api/backup/download');
+    const data = strFromU8(unzipSync(new Uint8Array(zip))['data.json']);
+    assert.ok(!data.includes(GOOD), 'το κλειδί δεν μπαίνει στα αντίγραφα ασφαλείας');
+    const off = await api.del('/api/settings/ai-key');
+    assert.equal(off.enabled, false);
+    assert.equal((await api.get('/api/catalog')).ai.enabled, false);
+  } finally {
+    await s.close();
+  }
+});
+
+test('κλειδί από μεταβλητή περιβάλλοντος δεν αλλάζει από την εφαρμογή', async () => {
+  const m = createAiManager({ anthropicApiKey: 'sk-ant-env-key-0000000000000000000000', aiModel: 'claude-opus-5-5', aiEffort: 'high' }, { getKey: () => null, setKey: () => {} });
+  assert.equal(m.status().source, 'env');
+  assert.equal(m.status().enabled, true);
+  await assert.rejects(() => m.saveKey('sk-ant-api03-' + 'c'.repeat(40)), /server/);
 });

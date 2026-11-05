@@ -112,7 +112,7 @@ export function invoiceRoutes({ db, config, ai, log = console }) {
   }
 
   function startExtraction(id, replace) {
-    if (!ai.enabled) throw new HttpError(400, 'Η αυτόματη ανάγνωση δεν είναι ενεργή (λείπει το ANTHROPIC_API_KEY στον server). Συμπληρώστε τα στοιχεία χειροκίνητα.');
+    if (!ai.enabled) throw new HttpError(400, 'Η αυτόματη ανάγνωση δεν είναι ενεργή. Ενεργοποιήστε την από Ρυθμίσεις → Αυτόματη ανάγνωση τιμολογίων, ή συμπληρώστε τα στοιχεία χειροκίνητα.');
     const files = db.prepare('SELECT COUNT(*) c FROM invoice_files WHERE invoice_id = ?').get(id).c;
     if (!files) throw new HttpError(400, 'Δεν υπάρχει αρχείο για ανάγνωση.');
     db.prepare("UPDATE invoices SET ai_status = 'running', ai_started_at = ?, ai_error = NULL WHERE id = ?").run(nowIso(), id);

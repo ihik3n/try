@@ -96,6 +96,67 @@ function toContent(files) {
 
 export class AiError extends Error {}
 
+export const AI_KEY_SECRET = 'anthropic_api_key';
+
+/** Έλεγχος κλειδιού με μια δωρεάν κλήση (λίστα μοντέλων). */
+async function defaultValidateKey(apiKey) {
+  const client = new Anthropic({ apiKey, maxRetries: 1, timeout: 20000 });
+  try {
+    await client.models.list({ limit: 1 });
+  } catch (err) {
+    if (err instanceof Anthropic.AuthenticationError || err instanceof Anthropic.PermissionDeniedError) throw new AiError('Το κλειδί δεν έγινε δεκτό από την Anthropic. Ελέγξτε ότι το αντιγράψατε ολόκληρο.');
+    if (err instanceof Anthropic.APIConnectionError) throw new AiError('Δεν υπάρχει σύνδεση με την Anthropic από τον υπολογιστή της εφαρμογής. Ελέγξτε το διαδίκτυο και δοκιμάστε ξανά.');
+    if (err instanceof Anthropic.APIError) throw new AiError(`Η Anthropic απάντησε με σφάλμα (${err.status ?? 'δίκτυο'}). Δοκιμάστε ξανά σε λίγο.`);
+    throw err;
+  }
+}
+
+/**
+ * Διαχείριση της AI: κλειδί από μεταβλητή περιβάλλοντος (ANTHROPIC_API_KEY) ή από τις Ρυθμίσεις της εφαρμογής.
+ * Η αλλαγή κλειδιού ισχύει αμέσως, χωρίς επανεκκίνηση.
+ */
+export function createAiManager(config, { getKey, setKey, validateKey = defaultValidateKey } = {}) {
+  let impl = { enabled: false, model: null };
+  let source = null;
+  let hint = null;
+  const refresh = () => {
+    const stored = getKey?.() || null;
+    const key = config.anthropicApiKey || stored;
+    source = config.anthropicApiKey || process.env.ANTHROPIC_AUTH_TOKEN ? 'env' : stored ? 'settings' : null;
+    hint = key ? `…${key.slice(-4)}` : null;
+    impl = createAi({ ...config, anthropicApiKey: key || '' });
+  };
+  refresh();
+  return {
+    get enabled() {
+      return impl.enabled;
+    },
+    get model() {
+      return impl.model;
+    },
+    status() {
+      return { enabled: impl.enabled, model: impl.model, source, key_hint: source === 'settings' ? hint : null };
+    },
+    extractInvoice: (...a) => impl.extractInvoice(...a),
+    suggestMatches: (...a) => impl.suggestMatches(...a),
+    async saveKey(raw) {
+      if (source === 'env') throw new AiError('Το κλειδί έχει οριστεί στον server (ANTHROPIC_API_KEY) και αλλάζει μόνο από εκεί.');
+      const key = String(raw || '').trim();
+      if (!/^sk-ant-[A-Za-z0-9_-]{20,}$/.test(key)) throw new AiError('Το κλειδί πρέπει να ξεκινά με «sk-ant-». Αντιγράψτε το ολόκληρο από το console.anthropic.com.');
+      await validateKey(key);
+      setKey(key);
+      refresh();
+      return this.status();
+    },
+    removeKey() {
+      if (source === 'env') throw new AiError('Το κλειδί έχει οριστεί στον server (ANTHROPIC_API_KEY) και αλλάζει μόνο από εκεί.');
+      setKey(null);
+      refresh();
+      return this.status();
+    },
+  };
+}
+
 export function createAi(config) {
   const hasCreds = !!(config.anthropicApiKey || process.env.ANTHROPIC_AUTH_TOKEN);
   if (!hasCreds) return { enabled: false, model: null };

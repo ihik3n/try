@@ -368,6 +368,14 @@ const MIGRATIONS = [
     updated_at TEXT NOT NULL
   );
   `,
+  // v2: μυστικά (π.χ. κλειδί AI). Δεν περιλαμβάνονται σε αντίγραφα/εξαγωγές και δεν επηρεάζονται από επαναφορά.
+  `
+  CREATE TABLE secrets (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  );
+  `,
 ];
 
 export function openDb(file) {
@@ -426,4 +434,13 @@ export function setSettings(db, patch) {
   db.transaction(() => {
     for (const [k, v] of Object.entries(patch)) stmt.run(k, JSON.stringify(v));
   })();
+}
+
+export function getSecret(db, key) {
+  return db.prepare('SELECT value FROM secrets WHERE key = ?').get(key)?.value ?? null;
+}
+
+export function setSecret(db, key, value) {
+  if (value == null) db.prepare('DELETE FROM secrets WHERE key = ?').run(key);
+  else db.prepare('INSERT INTO secrets (key, value, updated_at) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at').run(key, value, nowIso());
 }
