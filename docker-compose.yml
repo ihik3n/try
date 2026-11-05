@@ -1,0 +1,13 @@
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      # Κλειδί για αυτόματη ανάγνωση παραστατικών (προαιρετικό). Χωρίς αυτό η καταχώριση γίνεται χειροκίνητα.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      # 1 όταν η εφαρμογή σερβίρεται μέσω HTTPS (συνιστάται)
+      COOKIE_SECURE: ${COOKIE_SECURE:-auto}
+    volumes:
+      - ./data:/data
