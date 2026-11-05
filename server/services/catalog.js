@@ -166,6 +166,8 @@ export function diffCatalogs(before, after) {
       if (!used.length) continue;
       const oldCost = rb?.perUnit?.total ?? null;
       const newCost = ra.perUnit?.total ?? null;
+      const oldEx = rb?.perUnit ? rb.perUnit.total - rb.perUnit.labor : null;
+      const newEx = ra.perUnit ? ra.perUnit.total - ra.perUnit.labor : null;
       impacts.push({
         kind,
         id: node.id,
@@ -177,6 +179,10 @@ export function diffCatalogs(before, after) {
         new_complete: ra.complete,
         diff: oldCost != null && newCost != null ? newCost - oldCost : null,
         pct: oldCost != null && newCost != null && oldCost !== 0 ? ((newCost - oldCost) / oldCost) * 100 : null,
+        // Χωρίς εργασία προσωπικού
+        old_cost_ex_labor: oldEx,
+        new_cost_ex_labor: newEx,
+        pct_ex_labor: oldEx != null && newEx != null && oldEx !== 0 ? ((newEx - oldEx) / oldEx) * 100 : null,
         materials: used,
       });
     }

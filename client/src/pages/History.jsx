@@ -243,7 +243,14 @@ export function SnapshotCompare({ id }) {
 }
 
 function SnapRow({ i, open, toggle }) {
+  const { hl, costMode } = useStore();
   const u = COST_UNIT_SHORT[i.unit] || '';
+  const o = i.old_perUnit ? hl(i.old_perUnit) : null;
+  const n = i.new_perUnit ? hl(i.new_perUnit) : null;
+  const diff = o != null && n != null ? n - o : null;
+  const pct = diff != null && o ? (diff / o) * 100 : null;
+  // Κόστος γραμμής: χωρίς το μερίδιο εργασίας όταν είναι γνωστό (νεότερα στιγμιότυπα).
+  const lc = (l) => (l?.cost == null ? null : costMode === 'with_labor' ? l.cost : l.cost - (l.labor || 0));
   return (
     <>
       <tr onClick={toggle} style={{ cursor: 'pointer' }}>
@@ -252,11 +259,11 @@ function SnapRow({ i, open, toggle }) {
           {!i.old_complete && <Badge kind="warn">Ελλιπές τότε</Badge>}
         </td>
         <td className="num">
-          {formatMoney(i.old_cost)}/{u}
+          {formatMoney(o)}/{u}
         </td>
-        <td className="num">{i.exists ? `${formatMoney(i.new_cost)}/${u}` : '—'}</td>
+        <td className="num">{i.exists ? `${formatMoney(n)}/${u}` : '—'}</td>
         <td className="num">
-          <DiffText diff={i.diff} pct={i.pct} />
+          <DiffText diff={diff} pct={pct} />
         </td>
       </tr>
       {open &&
@@ -269,10 +276,10 @@ function SnapRow({ i, open, toggle }) {
                 {!l.current && ' · αφαιρέθηκε'}
               </div>
             </td>
-            <td className="num">{l.old ? formatMoney(l.old.cost) : '—'}</td>
-            <td className="num">{l.current ? formatMoney(l.current.cost) : '—'}</td>
+            <td className="num">{l.old ? formatMoney(lc(l.old)) : '—'}</td>
+            <td className="num">{l.current ? formatMoney(lc(l.current)) : '—'}</td>
             <td className="num">
-              <DiffText diff={l.old?.cost != null && l.current?.cost != null ? l.current.cost - l.old.cost : null} />
+              <DiffText diff={lc(l.old) != null && lc(l.current) != null ? lc(l.current) - lc(l.old) : null} />
             </td>
           </tr>
         ))}

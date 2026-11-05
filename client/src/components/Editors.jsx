@@ -26,8 +26,16 @@ function unitOptions(item, kind, materialsById, engine) {
   return ['g', 'kg', 'ml', 'l', 'pc'];
 }
 
+/** Κόστος γραμμής και τιμή μονάδας στο «κύριο» κόστος (π.χ. χωρίς εργασία προσωπικού επιμέρους συνταγών). */
+export function lineCost(line, hl) {
+  if (!line || line.cost == null) return { cost: null, unitPrice: line?.unitPrice ?? null };
+  const cost = hl(line);
+  const unitPrice = line.type === 'recipe' && line.qtyCostUnit > 0 ? cost / line.qtyCostUnit : line.unitPrice;
+  return { cost, unitPrice };
+}
+
 export function ItemsEditor({ kind, items, setItems, result, selfId }) {
-  const { materialsById, engine } = useStore();
+  const { materialsById, engine, hl } = useStore();
   const [picker, setPicker] = useState(null); // { key | 'new' }
   const [notes, setNotes] = useState({});
   const refKey = kind === 'recipe' ? 'sub_recipe_id' : 'recipe_id';
@@ -62,6 +70,7 @@ export function ItemsEditor({ kind, items, setItems, result, selfId }) {
       <div className="items">
         {items.map((it, i) => {
           const line = result?.lines?.[i];
+          const lc = lineCost(line, hl);
           const name = line?.name || (it.material_id != null ? materialsById.get(it.material_id)?.name : null);
           const opts = unitOptions(it, kind, materialsById, engine);
           const isRecipe = it[refKey] != null;
@@ -96,8 +105,8 @@ export function ItemsEditor({ kind, items, setItems, result, selfId }) {
                   Σημ.
                 </button>
                 <div className="cost">
-                  <div className="strong">{line?.cost != null ? formatMoney(line.cost) : '—'}</div>
-                  {line?.unitPrice != null && line?.costUnit && <div className="sub">{formatUnitPrice(line.unitPrice, line.costUnit)}</div>}
+                  <div className="strong">{lc.cost != null ? formatMoney(lc.cost) : '—'}</div>
+                  {lc.unitPrice != null && line?.costUnit && <div className="sub">{formatUnitPrice(lc.unitPrice, line.costUnit)}</div>}
                 </div>
               </div>
               {(notes[it._key] || it.note) && (
@@ -179,12 +188,15 @@ export function OwnCostsNote({ result }) {
 
 /** Πού χρησιμοποιείται (με νέο κόστος αν υπάρχουν αλλαγές). */
 export function UsageList({ usage, before, after, dirty }) {
+  const { hl } = useStore();
   if (!usage.length) return <p className="muted small">Δεν χρησιμοποιείται σε άλλες συνταγές ή προϊόντα.</p>;
   return (
     <div className="list">
       {usage.map((u) => {
         const b = before(u);
         const a = after(u);
+        const bv = hl(b?.perUnit);
+        const av = hl(a?.perUnit);
         return (
           <Link key={`${u.kind}${u.id}`} to={`/${u.kind === 'product' ? 'products' : 'recipes'}/${u.id}`} className="list-item">
             <div className="grow">
@@ -193,11 +205,11 @@ export function UsageList({ usage, before, after, dirty }) {
             </div>
             <div className="value">
               <div>
-                {formatMoney(dirty ? a?.perUnit?.total : b?.perUnit?.total)}/{COST_UNIT_SHORT[(a || b)?.yield?.outputUnit] || ''}
+                {formatMoney(dirty ? av : bv)}/{COST_UNIT_SHORT[(a || b)?.yield?.outputUnit] || ''}
               </div>
-              {dirty && b?.perUnit && a?.perUnit && Math.abs(a.perUnit.total - b.perUnit.total) > 1e-9 && (
+              {dirty && bv != null && av != null && Math.abs(av - bv) > 1e-9 && (
                 <div className="sub">
-                  από {formatMoney(b.perUnit.total)} <DiffText diff={a.perUnit.total - b.perUnit.total} money={false} pct={((a.perUnit.total - b.perUnit.total) / b.perUnit.total) * 100} />
+                  από {formatMoney(bv)} <DiffText diff={av - bv} money={false} pct={bv ? ((av - bv) / bv) * 100 : null} />
                 </div>
               )}
               {(a || b) && !(a || b).complete && <Badge kind="danger">Ελλιπές</Badge>}

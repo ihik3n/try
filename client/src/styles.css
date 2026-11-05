@@ -183,7 +183,7 @@ textarea.input { min-height: 90px; resize: vertical; }
 .radio-cards { display: grid; gap: .5rem; }
 .radio-card { display: flex; gap: .6rem; align-items: flex-start; border: 1px solid var(--border); border-radius: 10px; padding: .65rem .75rem; cursor: pointer; background: #fff; }
 .radio-card.active { border-color: var(--primary); background: var(--primary-soft); }
-.radio-card input { margin-top: .2rem; width: 18px; height: 18px; flex-shrink: 0; }
+.radio-card > input { margin-top: .2rem; width: 18px; height: 18px; flex-shrink: 0; }
 .radio-card > div { flex: 1; min-width: 0; }
 .radio-card .t { font-weight: 650; }
 .radio-card .d { font-size: .83rem; color: var(--muted); }
@@ -262,6 +262,8 @@ table.t th.num, table.t td.num { text-align: right; }
 .costrow:last-child { border-bottom: 0; }
 .costrow.total { font-weight: 800; border-top: 2px solid var(--border); border-bottom: 0; margin-top: .2rem; }
 .costrow .na { color: var(--muted); font-style: italic; font-size: .85rem; }
+.costrow.sub { color: var(--muted); font-size: .92rem; }
+.costrow.total + .costrow.sub { border-top: 0; }
 .kv { display: grid; grid-template-columns: auto 1fr; gap: .25rem .8rem; font-size: .92rem; }
 .kv dt { color: var(--muted); }
 .kv dd { margin: 0; font-variant-numeric: tabular-nums; }

@@ -182,6 +182,10 @@ async function run() {
   await d.locator('.sidebar').getByText('Συνταγές').click();
   await d.locator('.list-item', { hasText: 'Crumble' }).click();
   await d.getByText('Τελική απόδοση', { exact: true }).waitFor();
+  const lossVal = await d.locator('.radio-card.active input.input').first().inputValue();
+  if (lossVal !== '8') throw new Error(`Το πεδίο φύρας δείχνει «${lossVal}» αντί για 8`);
+  const lossW = (await d.locator('.radio-card.active input.input').first().boundingBox()).width;
+  if (lossW < 60) throw new Error(`Το πεδίο φύρας είναι πολύ στενό (${lossW}px)`);
   const before = await d.locator('.costbox .big').first().innerText();
   await d.locator('.item-row').first().locator('input').first().fill('500');
   await d.waitForTimeout(200);

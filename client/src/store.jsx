@@ -1,7 +1,7 @@
 // Κοινή κατάσταση: κατάλογος (υλικά, συνταγές, προϊόντα, ρυθμίσεις), μηχανή κοστολόγησης, ειδοποιήσεις.
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from './api.js';
-import { createEngine } from '@shared/costing.js';
+import { createEngine, headline, headlineMode, HEADLINE_LABEL } from '@shared/costing.js';
 import { canShareFile, saveWithAnchor } from './platform.js';
 
 const Ctx = createContext(null);
@@ -72,7 +72,11 @@ export function StoreProvider({ children }) {
     const recipesById = new Map(catalog.recipes.map((r) => [r.id, r]));
     const productsById = new Map(catalog.products.map((p) => [p.id, p]));
     const suppliersById = new Map(catalog.suppliers.map((s) => [s.id, s]));
-    return { engine, materialsById, recipesById, productsById, suppliersById };
+    // Κύριο κόστος (χωρίς ή με εργασία προσωπικού) σύμφωνα με τις Ρυθμίσεις.
+    const costMode = headlineMode(catalog.settings);
+    const hl = (c) => headline(c, costMode);
+    const costModeLabel = HEADLINE_LABEL[costMode];
+    return { engine, materialsById, recipesById, productsById, suppliersById, costMode, hl, costModeLabel };
   }, [catalog]);
 
   const value = { catalog, error, reload, toast, confirm, ...derived };

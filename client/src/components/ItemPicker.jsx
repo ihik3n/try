@@ -12,7 +12,7 @@ import { Icon } from '../icons.jsx';
  * excludeRecipeId: για αποτροπή κυκλικών συνδέσεων
  */
 export function ItemPicker({ title = 'Επιλογή', kinds = ['material', 'packaging', 'recipe'], onPick, onClose, excludeRecipeId, onCreateMaterial, initialQuery = '' }) {
-  const { catalog, engine } = useStore();
+  const { catalog, engine, hl } = useStore();
   const [q, setQ] = useState(initialQuery);
   const [tab, setTab] = useState('all');
   const inputRef = useRef(null);
@@ -103,7 +103,7 @@ export function ItemPicker({ title = 'Επιλογή', kinds = ['material', 'pac
               {(i.type === 'recipe' || i.type === 'product') &&
                 (i.res?.perUnit ? (
                   <span>
-                    {formatMoney(i.res.perUnit.total)}/{COST_UNIT_SHORT[i.res.yield.outputUnit]} {!i.res.complete && <Badge kind="danger">Ελλιπές</Badge>}
+                    {formatMoney(hl(i.res.perUnit))}/{COST_UNIT_SHORT[i.res.yield.outputUnit]} {!i.res.complete && <Badge kind="danger">Ελλιπές</Badge>}
                   </span>
                 ) : (
                   <Badge kind="danger">Ελλιπές</Badge>

@@ -7,7 +7,7 @@ import { matchesSearch } from '@shared/text.js';
 import { navigate } from '../router.js';
 
 export function Recipes() {
-  const { catalog, engine } = useStore();
+  const { catalog, engine, hl } = useStore();
   const [q, setQ] = useState('');
   const [cat, setCat] = useState(null);
   const [archived, setArchived] = useState(false);
@@ -51,7 +51,7 @@ export function Recipes() {
                 <div className="value">
                   {res.perUnit ? (
                     <div className="strong">
-                      {formatMoney(res.perUnit.total)}/{COST_UNIT_SHORT[res.yield.outputUnit]}
+                      {formatMoney(hl(res.perUnit))}/{COST_UNIT_SHORT[res.yield.outputUnit]}
                     </div>
                   ) : (
                     '—'

@@ -32,7 +32,7 @@ const EMPTY = {
 const PER = { kg: 'ανά κιλό', l: 'ανά λίτρο', pc: 'ανά τεμάχιο' };
 
 export function RecipeEdit({ id }) {
-  const { catalog, engine, recipesById, reload, confirm } = useStore();
+  const { catalog, engine, recipesById, reload, confirm, hl, costMode } = useStore();
   const [run, busy] = useAction();
   const saved = id != null ? recipesById.get(id) : null;
   const [draft, setDraft] = useState(() => (saved ? { ...saved, items: saved.items.map(withKey) } : { ...EMPTY }));
@@ -252,11 +252,14 @@ export function RecipeEdit({ id }) {
                 {res.yield.mode === 'actual' && res.yield.impliedLossPct != null && <div className="small muted">απώλεια {formatNumber(res.yield.impliedLossPct, 1)}%</div>}
               </dd>
               <dt>Κόστος παρτίδας</dt>
-              <dd>{formatMoney(res.batch.total)}</dd>
+              <dd>
+                {formatMoney(hl(res.batch))}
+                {res.laborIncluded && <div className="small muted">{costMode === 'with_labor' ? `χωρίς εργασία ${formatMoney(res.batch.total - res.batch.labor)}` : `με εργασία ${formatMoney(res.batch.total)}`}</div>}
+              </dd>
               {res.perUnit && out !== 'pc' && (
                 <>
                   <dt>Ανά 100 {out === 'l' ? 'ml' : 'g'}</dt>
-                  <dd>{formatMoney(res.perUnit.total / 10)}</dd>
+                  <dd>{formatMoney(hl(res.perUnit) / 10)}</dd>
                 </>
               )}
             </dl>
@@ -279,7 +282,7 @@ export function RecipeEdit({ id }) {
       </div>
       <div className="stickybar mobile-only">
         <div className="info">
-          <b>{res.perUnit ? formatMoney(res.perUnit.total) : '—'}</b> {out ? PER[out] : ''} {!res.complete && <Badge kind="danger">Ελλιπές</Badge>}
+          <b>{res.perUnit ? formatMoney(hl(res.perUnit)) : '—'}</b> {out ? PER[out] : ''} {!res.complete && <Badge kind="danger">Ελλιπές</Badge>}
         </div>
         <button className="btn primary" onClick={save} disabled={busy || !draft.name?.trim() || missingRef}>
           <Icon name="check" /> Αποθήκευση {dirty ? '•' : ''}
@@ -291,7 +294,7 @@ export function RecipeEdit({ id }) {
 
 /** Αναλογική αλλαγή ποσότητας παραγωγής (προβολή & εκτύπωση). */
 function ScalePanel({ recipe, res }) {
-  const { materialsById, recipesById } = useStore();
+  const { materialsById, recipesById, hl } = useStore();
   const [mode, setMode] = useState('factor');
   const [factor, setFactor] = useState(2);
   const [target, setTarget] = useState(null);
@@ -342,7 +345,7 @@ function ScalePanel({ recipe, res }) {
       {valid && (
         <>
           <p>
-            <b>× {formatNumber(f, 3)}</b> · απόδοση {res.yield.ok ? baseQtyLabel(res.yield.base * f, res.yield.baseUnit) : '—'} · κόστος {formatMoney(res.batch.total * f)} {!res.complete && <Badge kind="danger">Ελλιπές</Badge>}
+            <b>× {formatNumber(f, 3)}</b> · απόδοση {res.yield.ok ? baseQtyLabel(res.yield.base * f, res.yield.baseUnit) : '—'} · κόστος {formatMoney(hl(res.batch) * f)} {!res.complete && <Badge kind="danger">Ελλιπές</Badge>}
           </p>
           <div className="table-wrap">
             <table className="t">

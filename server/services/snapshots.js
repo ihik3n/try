@@ -18,7 +18,7 @@ function itemData(r) {
     issues: r.issues.map((i) => i.msg),
     laborIncluded: r.laborIncluded,
     overheadIncluded: r.overheadIncluded,
-    lines: r.lines.map((l) => ({ type: l.type, ref_id: l.ref_id, name: l.name, kind: l.kind, qty: l.qty, unit: l.unit, costUnit: l.costUnit, unitPrice: l.unitPrice, cost: l.cost })),
+    lines: r.lines.map((l) => ({ type: l.type, ref_id: l.ref_id, name: l.name, kind: l.kind, qty: l.qty, unit: l.unit, costUnit: l.costUnit, unitPrice: l.unitPrice, cost: l.cost, labor: l.components?.labor ?? 0 })),
   };
 }
 

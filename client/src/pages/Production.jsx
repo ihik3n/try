@@ -2,17 +2,16 @@
 import { useEffect, useMemo, useState } from 'react';
 import { api, download } from '../api.js';
 import { useStore, useAction } from '../store.jsx';
-import { PageHead, Field, NumberInput, Select, Badge, Issues, printSection, TextInput, SampleBadge, Link } from '../ui.jsx';
+import { PageHead, Field, NumberInput, Select, Badge, Issues, printSection, TextInput, SampleBadge, Link, CostBreakdown } from '../ui.jsx';
 import { Icon } from '../icons.jsx';
 import { ItemPicker } from '../components/ItemPicker.jsx';
 import { formatMoney, formatQty, formatNumber, formatDate, UNIT_LABEL, COST_UNIT_SHORT, BASIS_LABEL, todayIso, unitsFor } from '../format.js';
-import { COMPONENT_LABEL } from '@shared/costing.js';
 
 let seq = 1;
 const k = (e) => ({ ...e, _key: e._key || `p${seq++}` });
 
 export function Production({ query }) {
-  const { catalog, engine, productsById, recipesById, confirm } = useStore();
+  const { catalog, engine, productsById, recipesById, confirm, hl } = useStore();
   const [run, busy] = useAction();
   const [entries, setEntries] = useState(() => (query.product ? [k({ kind: 'product', id: Number(query.product), qty: null, unit: 'pc' })] : []));
   const [picker, setPicker] = useState(false);
@@ -173,43 +172,22 @@ export function Production({ query }) {
                         </td>
                         <td className="num">{formatQty(e.qty, e.unit, { keepUnit: true })}</td>
                         <td className="num">
-                          {e.perUnit ? `${formatMoney(e.perUnit.total)}/${COST_UNIT_SHORT[e.outputUnit]}` : '—'}
+                          {e.perUnit ? `${formatMoney(hl(e.perUnit))}/${COST_UNIT_SHORT[e.outputUnit]}` : '—'}
                         </td>
-                        <td className="num strong">{e.cost ? formatMoney(e.cost.total) : '—'}</td>
+                        <td className="num strong">{e.cost ? formatMoney(hl(e.cost)) : '—'}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
             </div>
-            <div className={`costbox ${plan.complete ? '' : 'incomplete'}`} style={{ marginBottom: '1rem' }}>
-              <div className="head">
-                <span className="big">{formatMoney(t.total)}</span>
-                <span className="muted">συνολικό κόστος παραγωγής</span>
-                {!plan.complete && <Badge kind="danger">Ελλιπές κοστολόγιο</Badge>}
-              </div>
-              <div className="body">
-                {['materials', 'packaging', 'labor', 'overhead'].map((c) => {
-                  const na = (c === 'labor' && !plan.laborIncluded) || (c === 'overhead' && !plan.overheadIncluded) || (c === 'packaging' && !plan.packaging.length && !t.packaging);
-                  return (
-                    <div key={c} className="costrow">
-                      <span>
-                        {COMPONENT_LABEL[c]}
-                        {c === 'labor' && plan.laborMinutes > 0 && <span className="muted small"> · {formatNumber(plan.laborMinutes, 0)} λεπτά</span>}
-                      </span>
-                      {na ? <span className="na">{c === 'overhead' ? 'δεν έχουν καταχωριστεί' : c === 'packaging' ? 'καμία' : 'δεν έχει καταχωριστεί'}</span> : <span>{formatMoney(t[c])}</span>}
-                    </div>
-                  );
-                })}
-                <div className="costrow total">
-                  <span>Σύνολο</span>
-                  <span>{formatMoney(t.total)}</span>
-                </div>
-                <div className="muted small" style={{ marginTop: '.4rem' }}>
-                  Βάση: <b>{BASIS_LABEL[basis]}</b>
-
-                </div>
-              </div>
+            <div style={{ marginBottom: '1rem' }}>
+              <CostBreakdown
+                result={{ perUnit: t, batch: t, complete: plan.complete, laborIncluded: plan.laborIncluded, overheadIncluded: plan.overheadIncluded, lines: plan.packaging.map(() => ({ kind: 'packaging' })), basis: plan.basis }}
+                perLabel="συνολικό κόστος παραγωγής"
+                basis={basis}
+              />
+              {plan.laborMinutes > 0 && <p className="small muted" style={{ marginTop: '.4rem' }}>Χρόνος εργασίας: {formatNumber(plan.laborMinutes, 0)} λεπτά</p>}
             </div>
           </div>
 

@@ -3,7 +3,7 @@ import { api } from '../api.js';
 import { useStore, useAction } from '../store.jsx';
 import { PageHead, Field, TextInput, NumberInput, CostBreakdown, Issues, SampleBadge, Spinner, Badge } from '../ui.jsx';
 import { Icon } from '../icons.jsx';
-import { ItemsEditor, LaborOverhead, OwnCostsNote, withKey } from '../components/Editors.jsx';
+import { ItemsEditor, LaborOverhead, OwnCostsNote, withKey, lineCost } from '../components/Editors.jsx';
 import { formatMoney, formatQty, formatUnitPrice, BASIS_LABEL } from '../format.js';
 import { createEngine, COMPONENT_LABEL } from '@shared/costing.js';
 import { navigate, setNavigationBlocker } from '../router.js';
@@ -11,7 +11,7 @@ import { navigate, setNavigationBlocker } from '../router.js';
 const EMPTY = { name: '', category: '', notes: '', batch_size: 1, labor_minutes: null, labor_rate: null, overhead_fixed: null, overhead_pct: null, overhead_base: 'materials', archived: 0, items: [] };
 
 export function ProductEdit({ id }) {
-  const { catalog, productsById, reload, confirm } = useStore();
+  const { catalog, productsById, reload, confirm, hl } = useStore();
   const [run, busy] = useAction();
   const saved = id != null ? productsById.get(id) : null;
   const [draft, setDraft] = useState(() => (saved ? { ...saved, items: saved.items.map(withKey) } : { ...EMPTY }));
@@ -142,15 +142,18 @@ export function ProductEdit({ id }) {
               g.lines.length ? (
                 <div key={g.k} style={{ marginBottom: '.5rem' }}>
                   <div className="kindtag">{g.title}</div>
-                  {g.lines.map((l, i) => (
-                    <div key={i} className="costrow">
-                      <span>
-                        {l.name} <span className="muted small">{formatQty(l.qty, l.unit, { keepUnit: true })}</span>
-                        {l.unitPrice != null && <div className="small muted">{formatUnitPrice(l.unitPrice, l.costUnit)}</div>}
-                      </span>
-                      <span>{l.cost != null ? formatMoney(l.cost) : <Badge kind="danger">—</Badge>}</span>
-                    </div>
-                  ))}
+                  {g.lines.map((l, i) => {
+                    const lc = lineCost(l, hl);
+                    return (
+                      <div key={i} className="costrow">
+                        <span>
+                          {l.name} <span className="muted small">{formatQty(l.qty, l.unit, { keepUnit: true })}</span>
+                          {lc.unitPrice != null && <div className="small muted">{formatUnitPrice(lc.unitPrice, l.costUnit)}</div>}
+                        </span>
+                        <span>{lc.cost != null ? formatMoney(lc.cost) : <Badge kind="danger">—</Badge>}</span>
+                      </div>
+                    );
+                  })}
                 </div>
               ) : null,
             )}
@@ -178,7 +181,7 @@ export function ProductEdit({ id }) {
       </div>
       <div className="stickybar mobile-only">
         <div className="info">
-          <b>{res.perUnit ? formatMoney(res.perUnit.total) : '—'}</b> {'ανά τεμάχιο'} {!res.complete && <Badge kind="danger">Ελλιπές</Badge>}
+          <b>{res.perUnit ? formatMoney(hl(res.perUnit)) : '—'}</b> {'ανά τεμάχιο'} {!res.complete && <Badge kind="danger">Ελλιπές</Badge>}
         </div>
         <button className="btn primary" onClick={save} disabled={busy || !draft.name?.trim() || missingRef}>
           <Icon name="check" /> Αποθήκευση {dirty ? '•' : ''}

@@ -781,7 +781,18 @@ export function ChangesTable({ changes }) {
   );
 }
 
+/** Παλιό/νέο κόστος επηρεαζόμενου στοιχείου στο «κύριο» κόστος (χωρίς ή με εργασία). */
+export function impactCosts(i, costMode) {
+  if (costMode !== 'with_labor' && i.old_cost_ex_labor !== undefined) {
+    const o = i.old_cost_ex_labor;
+    const n = i.new_cost_ex_labor;
+    return { o, n, diff: o != null && n != null ? n - o : null, pct: i.pct_ex_labor };
+  }
+  return { o: i.old_cost, n: i.new_cost, diff: i.diff, pct: i.pct };
+}
+
 export function ImpactsTable({ impacts }) {
+  const { costMode, costModeLabel } = useStore();
   if (!impacts.length) return <p className="muted">Κανένα.</p>;
   const sorted = [...impacts].sort((a, b) => (a.kind === b.kind ? Math.abs(b.pct ?? 0) - Math.abs(a.pct ?? 0) : a.kind === 'product' ? -1 : 1));
   return (
@@ -790,29 +801,32 @@ export function ImpactsTable({ impacts }) {
         <thead>
           <tr>
             <th>Προϊόν / συνταγή</th>
-            <th className="num">Παλιό κόστος</th>
+            <th className="num">Παλιό κόστος ({costModeLabel})</th>
             <th className="num">Νέο κόστος</th>
             <th className="num">Μεταβολή</th>
           </tr>
         </thead>
         <tbody>
-          {sorted.map((i) => (
+          {sorted.map((i) => {
+            const c = impactCosts(i, costMode);
+            return (
             <tr key={`${i.kind}${i.id}`}>
               <td>
                 <Link to={`/${i.kind === 'product' ? 'products' : 'recipes'}/${i.id}`}>{i.name}</Link> <span className="kindtag">{i.kind === 'product' ? 'Προϊόν' : 'Συνταγή'}</span>
                 {!i.new_complete && <Badge kind="danger">Ελλιπές</Badge>}
               </td>
               <td className="num">
-                {formatMoney(i.old_cost)}/{COST_UNIT_SHORT[i.unit]}
+                {formatMoney(c.o)}/{COST_UNIT_SHORT[i.unit]}
               </td>
               <td className="num">
-                {formatMoney(i.new_cost)}/{COST_UNIT_SHORT[i.unit]}
+                {formatMoney(c.n)}/{COST_UNIT_SHORT[i.unit]}
               </td>
               <td className="num">
-                <DiffText diff={i.diff} pct={i.pct} />
+                <DiffText diff={c.diff} pct={c.pct} />
               </td>
             </tr>
-          ))}
+            );
+          })}
         </tbody>
       </table>
     </div>

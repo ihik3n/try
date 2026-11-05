@@ -50,6 +50,16 @@ export function Settings() {
               </button>
             </div>
           </Field>
+          <Field label="Κύριο κόστος που εμφανίζεται" hint="Η εργασία προσωπικού υπολογίζεται και φαίνεται πάντα χωριστά· εδώ επιλέγετε ποιο ποσό είναι το μεγάλο (κύριο) σε συνταγές, προϊόντα και παραγωγή.">
+            <div className="seg">
+              <button className={s.cost_headline !== 'with_labor' ? 'active' : ''} onClick={() => s.cost_headline === 'with_labor' && saveGeneral({ cost_headline: 'without_labor' })}>
+                Χωρίς εργασία προσωπικού
+              </button>
+              <button className={s.cost_headline === 'with_labor' ? 'active' : ''} onClick={() => s.cost_headline !== 'with_labor' && saveGeneral({ cost_headline: 'with_labor' })}>
+                Με εργασία προσωπικού
+              </button>
+            </div>
+          </Field>
           <Field label="Προεπιλεγμένο ωριαίο κόστος εργασίας (€/ώρα)" hint="Χρησιμοποιείται όταν καταχωρίζετε χρόνο εργασίας χωρίς δικό του ωριαίο κόστος. Κενό = δεν υπολογίζεται.">
             <div className="row" style={{ flexWrap: 'nowrap' }}>
               <NumberInput value={rate} onChange={setRate} suffix="€/ώρα" />

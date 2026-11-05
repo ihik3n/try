@@ -6,6 +6,7 @@ import { Icon } from '../icons.jsx';
 import { formatMoney, formatDate, formatUnitPrice, COST_UNIT_SHORT } from '../format.js';
 import { navigate } from '../router.js';
 import { PhoneAccess } from '../components/PhoneAccess.jsx';
+import { impactCosts } from './InvoiceEdit.jsx';
 import { isTouch } from '../platform.js';
 
 const PHONE_KEY = 'phone-card-dismissed';
@@ -18,7 +19,7 @@ function phoneCardHidden() {
 }
 
 export function Home() {
-  const { catalog, engine } = useStore();
+  const { catalog, engine, costMode } = useStore();
   const [events, setEvents] = useState([]);
   const [drafts, setDrafts] = useState([]);
   const [phoneHidden, setPhoneHidden] = useState(() => isTouch() || phoneCardHidden());
@@ -189,11 +190,14 @@ export function Home() {
                   {e.impacts
                     .filter((i) => i.kind === 'product')
                     .slice(0, 3)
-                    .map((i) => (
-                      <div key={i.id}>
-                        • {i.name}: {formatMoney(i.old_cost)} → {formatMoney(i.new_cost)}/{COST_UNIT_SHORT[i.unit]} <DiffText diff={i.diff} pct={i.pct} />
-                      </div>
-                    ))}
+                    .map((i) => {
+                      const c = impactCosts(i, costMode);
+                      return (
+                        <div key={i.id}>
+                          • {i.name}: {formatMoney(c.o)} → {formatMoney(c.n)}/{COST_UNIT_SHORT[i.unit]} <DiffText diff={c.diff} pct={c.pct} />
+                        </div>
+                      );
+                    })}
                 </div>
               )}
             </div>

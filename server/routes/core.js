@@ -82,6 +82,10 @@ export function coreRoutes({ db, ai }) {
       if (!['net', 'gross'].includes(req.body.vat_basis)) throw new HttpError(400, 'Μη έγκυρη βάση ΦΠΑ.');
       patch.vat_basis = req.body.vat_basis;
     }
+    if ('cost_headline' in req.body) {
+      if (!['without_labor', 'with_labor'].includes(req.body.cost_headline)) throw new HttpError(400, 'Μη έγκυρη επιλογή.');
+      patch.cost_headline = req.body.cost_headline;
+    }
     if ('labor_rate' in req.body) {
       const v = num(req.body.labor_rate);
       if (v != null && v < 0) throw new HttpError(400, 'Μη έγκυρο ωριαίο κόστος.');

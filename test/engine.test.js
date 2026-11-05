@@ -480,3 +480,23 @@ test('ανάγνωση AI: απρόβλεπτες μονάδες κανονικ�
   assert.ok(d.lines[2].flags.includes('qty_unit') && d.lines[2].flags.includes('pack_unit'));
   assert.equal(d.lines[2].excluded, 1);
 });
+
+// ---------- Κύριο κόστος χωρίς εργασία προσωπικού ----------
+import { headline, headlineMode } from '../shared/costing.js';
+
+test('κύριο κόστος: χωρίς εργασία (προεπιλογή) ή με εργασία, και για γραμμές επιμέρους συνταγών', () => {
+  const cat = sampleCatalog();
+  Object.assign(cat.recipes[1], { labor_minutes: 15, labor_rate: 10 }); // crumble: 2,50 € εργασία ανά παρτίδα
+  const e = createEngine(cat);
+  const r = e.evalRecipe(101);
+  assert.equal(headlineMode({}), 'without_labor');
+  assert.equal(headlineMode({ cost_headline: 'with_labor' }), 'with_labor');
+  close(headline(r.perUnit, 'without_labor'), 5.9 / 1.8);
+  close(headline(r.perUnit, 'with_labor'), (5.9 + 2.5) / 1.8);
+  close(headline(r.batch, 'without_labor'), 5.9);
+  const p = e.evalProduct(200);
+  const crumbleLine = p.lines[1];
+  close(headline(crumbleLine, 'without_labor'), 0.025 * (5.9 / 1.8));
+  close(headline(crumbleLine, 'with_labor'), 0.025 * ((5.9 + 2.5) / 1.8));
+  close(headline(p.perUnit, 'with_labor') - headline(p.perUnit, 'without_labor'), p.perUnit.labor);
+});

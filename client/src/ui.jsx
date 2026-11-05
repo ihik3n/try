@@ -3,6 +3,7 @@ import { parseDecimal, formatMoney, formatUnitPrice, BASIS_LABEL } from './forma
 import { navigate } from './router.js';
 import { Icon } from './icons.jsx';
 import { COMPONENT_LABEL } from '@shared/costing.js';
+import { useStore } from './store.jsx';
 
 export function Link({ to, children, className, ...rest }) {
   return (
@@ -206,33 +207,59 @@ export function Issues({ issues, title = 'Ελλιπές κοστολόγιο', 
 
 /** Ανάλυση κόστους ανά συνιστώσα με σαφή ένδειξη για ό,τι δεν έχει καταχωριστεί. */
 export function CostBreakdown({ result, perLabel, quantityLabel, basis, compact }) {
+  const { costMode } = useStore();
   if (!result) return null;
   const pu = result.perUnit;
   const incomplete = !result.complete;
+  const exLabor = costMode !== 'with_labor';
+  const main = pu ? (exLabor ? pu.total - pu.labor : pu.total) : null;
   const NA = { packaging: 'καμία', labor: 'δεν έχει καταχωριστεί', overhead: 'δεν έχουν καταχωριστεί' };
-  const row = (k, included) => (
-    <div className="costrow" key={k}>
-      <span>{COMPONENT_LABEL[k]}</span>
+  const row = (k, included, label = COMPONENT_LABEL[k], cls = '') => (
+    <div className={`costrow ${cls}`} key={k}>
+      <span>{label}</span>
       {included ? <span>{formatMoney(pu ? pu[k] : null)}</span> : <span className="na">{NA[k]}</span>}
     </div>
   );
+  const packaging = result.batch?.packaging > 0 || result.lines?.some((l) => l.kind === 'packaging');
   return (
     <div className={`costbox ${incomplete ? 'incomplete' : ''}`}>
       <div className="head">
-        <span className="big">{pu ? formatMoney(pu.total) : '—'}</span>
-        <span className="muted">{perLabel}</span>
+        <span className="big">{formatMoney(main)}</span>
+        <span className="muted">
+          {perLabel}
+          {result.laborIncluded ? (exLabor ? ' · χωρίς εργασία' : ' · με εργασία') : ''}
+        </span>
         {incomplete && <IncompleteBadge />}
       </div>
       <div className="body">
         {quantityLabel && <div className="muted small" style={{ marginBottom: '.3rem' }}>{quantityLabel}</div>}
         {row('materials', true)}
-        {row('packaging', result.batch?.packaging > 0 || result.lines?.some((l) => l.kind === 'packaging'))}
-        {row('labor', result.laborIncluded)}
-        {row('overhead', result.overheadIncluded)}
-        <div className="costrow total">
-          <span>Σύνολο {incomplete ? '(μερικό)' : ''}</span>
-          <span>{pu ? formatMoney(pu.total) : '—'}</span>
-        </div>
+        {row('packaging', packaging)}
+        {exLabor ? (
+          <>
+            {row('overhead', result.overheadIncluded)}
+            <div className="costrow total">
+              <span>Κόστος χωρίς εργασία {incomplete ? '(μερικό)' : ''}</span>
+              <span>{formatMoney(main)}</span>
+            </div>
+            {row('labor', result.laborIncluded, 'Εργασία προσωπικού', 'sub')}
+            {result.laborIncluded && (
+              <div className="costrow sub">
+                <span>Σύνολο με εργασία</span>
+                <span>{formatMoney(pu?.total)}</span>
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            {row('labor', result.laborIncluded, 'Εργασία προσωπικού')}
+            {row('overhead', result.overheadIncluded)}
+            <div className="costrow total">
+              <span>Σύνολο με εργασία {incomplete ? '(μερικό)' : ''}</span>
+              <span>{formatMoney(pu?.total)}</span>
+            </div>
+          </>
+        )}
         {!compact && (
           <div className="muted small" style={{ marginTop: '.4rem' }}>
             Βάση κοστολόγησης: <b>{BASIS_LABEL[basis || result.basis]}</b>

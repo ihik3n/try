@@ -413,6 +413,7 @@ export const DEFAULT_SETTINGS = {
   business_name: 'Το ζαχαροπλαστείο μου',
   vat_basis: 'net',
   labor_rate: null,
+  cost_headline: 'without_labor',
   default_overhead_note: '',
 };
 

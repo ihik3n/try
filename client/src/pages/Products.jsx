@@ -7,7 +7,7 @@ import { matchesSearch } from '@shared/text.js';
 import { navigate } from '../router.js';
 
 export function Products() {
-  const { catalog, engine } = useStore();
+  const { catalog, engine, hl, costMode } = useStore();
   const [q, setQ] = useState('');
   const [cat, setCat] = useState(null);
   const [archived, setArchived] = useState(false);
@@ -46,11 +46,11 @@ export function Products() {
                   <div className="sub">
                     {p.category ? `${p.category} · ` : ''}
                     {res.perUnit ? `υλικά ${formatMoney(res.perUnit.materials)} · συσκ. ${formatMoney(res.perUnit.packaging)}` : ''}
-                    {res.laborIncluded ? ' · με εργασία' : ''}
+                    {res.laborIncluded && res.perUnit ? (costMode === 'with_labor' ? ' · με εργασία' : ` · εργασία ${formatMoney(res.perUnit.labor)} επιπλέον`) : ''}
                   </div>
                 </div>
                 <div className="value">
-                  <div className="strong">{res.perUnit ? `${formatMoney(res.perUnit.total)}/τεμ.` : '—'}</div>
+                  <div className="strong">{res.perUnit ? `${formatMoney(hl(res.perUnit))}/τεμ.` : '—'}</div>
                   {!res.complete && <Badge kind="danger">Ελλιπές</Badge>}
                 </div>
               </Link>

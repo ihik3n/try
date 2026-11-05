@@ -53,10 +53,10 @@ export function pricesTable(db) {
 }
 
 const compCols = (label) => [
-  [`Πρώτες ύλες ${label} (€)`, 14, 'money4'], [`Συσκευασίες ${label} (€)`, 14, 'money4'], [`Εργασία ${label} (€)`, 12, 'money4'],
-  [`Λειτουργικά ${label} (€)`, 12, 'money4'], [`Σύνολο ${label} (€)`, 14, 'money4'],
+  [`Πρώτες ύλες ${label} (€)`, 14, 'money4'], [`Συσκευασίες ${label} (€)`, 14, 'money4'], [`Λειτουργικά ${label} (€)`, 12, 'money4'],
+  [`Κόστος χωρίς εργασία ${label} (€)`, 16, 'money4'], [`Εργασία ${label} (€)`, 12, 'money4'], [`Σύνολο με εργασία ${label} (€)`, 16, 'money4'],
 ];
-const comps = (c) => (c ? [c.materials, c.packaging, c.labor, c.overhead, c.total] : [null, null, null, null, null]);
+const comps = (c) => (c ? [c.materials, c.packaging, c.overhead, c.total - c.labor, c.labor, c.total] : [null, null, null, null, null, null]);
 
 export function recipeTables(catalog) {
   const e = createEngine(catalog);
@@ -67,24 +67,24 @@ export function recipeTables(catalog) {
     const yLabel = x.yield.ok ? `${(x.yield.base / (x.yield.baseUnit === 'pc' ? 1 : 1000)).toLocaleString('el-GR', { maximumFractionDigits: 3 })} ${U[x.yield.outputUnit]}` : '—';
     summary.push([
       r.name, r.category || '', { actual: 'Πραγματική', loss: `Φύρα ${r.loss_pct ?? ''}%`, none: 'Σύνολο υλικών' }[r.yield_mode], yLabel, x.input.mass_g || null,
-      x.batch.total, U[x.yield.outputUnit] || '', ...comps(x.perUnit), x.complete ? 'Πλήρες' : 'ΕΛΛΙΠΕΣ', x.issues.map((i) => i.msg).join(' | '), yes(r.is_sample),
+      x.batch.total - x.batch.labor, x.batch.total, U[x.yield.outputUnit] || '', ...comps(x.perUnit), x.complete ? 'Πλήρες' : 'ΕΛΛΙΠΕΣ', x.issues.map((i) => i.msg).join(' | '), yes(r.is_sample),
     ]);
     for (const l of x.lines) {
-      lines.push([r.name, l.type === 'recipe' ? 'Συνταγή' : l.kind === 'packaging' ? 'Συσκευασία' : 'Πρώτη ύλη', l.name, l.qty, unitLabel(l.unit), l.unitPrice, l.costUnit ? `€/${U[l.costUnit]}` : '', l.cost, l.issue || '', l.note || '']);
+      lines.push([r.name, l.type === 'recipe' ? 'Συνταγή' : l.kind === 'packaging' ? 'Συσκευασία' : 'Πρώτη ύλη', l.name, l.qty, unitLabel(l.unit), l.unitPrice, l.costUnit ? `€/${U[l.costUnit]}` : '', l.cost != null ? l.cost - (l.components?.labor || 0) : null, l.cost, l.issue || '', l.note || '']);
     }
   }
   return [
     {
       name: 'Συνταγές',
       columns: [
-        ['Συνταγή', 30], ['Κατηγορία', 16], ['Τρόπος απόδοσης', 16], ['Τελική απόδοση', 14], ['Σύνολο υλικών (g)', 14, 'num'], ['Κόστος παρτίδας (€)', 14, 'money4'],
+        ['Συνταγή', 30], ['Κατηγορία', 16], ['Τρόπος απόδοσης', 16], ['Τελική απόδοση', 14], ['Σύνολο υλικών (g)', 14, 'num'], ['Κόστος παρτίδας χωρίς εργασία (€)', 16, 'money4'], ['Κόστος παρτίδας με εργασία (€)', 16, 'money4'],
         ['Μονάδα', 8], ...compCols('ανά μονάδα'), ['Κατάσταση', 10], ['Ελλείψεις', 40], ['Παράδειγμα', 8],
       ],
       rows: summary,
     },
     {
       name: 'Υλικά συνταγών',
-      columns: [['Συνταγή', 30], ['Είδος', 12], ['Υλικό / επιμέρους συνταγή', 30], ['Ποσότητα', 10, 'num'], ['Μονάδα', 8], ['Τιμή μονάδας (€)', 12, 'money4'], ['Ανά', 8], ['Κόστος (€)', 12, 'money4'], ['Ένδειξη', 30], ['Σημείωση', 20]],
+      columns: [['Συνταγή', 30], ['Είδος', 12], ['Υλικό / επιμέρους συνταγή', 30], ['Ποσότητα', 10, 'num'], ['Μονάδα', 8], ['Τιμή μονάδας (€)', 12, 'money4'], ['Ανά', 8], ['Κόστος χωρίς εργασία (€)', 14, 'money4'], ['Κόστος με εργασία (€)', 14, 'money4'], ['Ένδειξη', 30], ['Σημείωση', 20]],
       rows: lines,
     },
   ];
@@ -101,7 +101,7 @@ export function productTables(catalog) {
       x.complete ? 'Πλήρες' : 'ΕΛΛΙΠΕΣ', x.issues.map((i) => i.msg).join(' | '), yes(p.is_sample),
     ]);
     for (const l of x.lines) {
-      lines.push([p.name, l.type === 'recipe' ? 'Συνταγή' : l.kind === 'packaging' ? 'Συσκευασία' : 'Πρώτη ύλη', l.name, l.qty, unitLabel(l.unit), l.unitPrice, l.costUnit ? `€/${U[l.costUnit]}` : '', l.cost, l.issue || '']);
+      lines.push([p.name, l.type === 'recipe' ? 'Συνταγή' : l.kind === 'packaging' ? 'Συσκευασία' : 'Πρώτη ύλη', l.name, l.qty, unitLabel(l.unit), l.unitPrice, l.costUnit ? `€/${U[l.costUnit]}` : '', l.cost != null ? l.cost - (l.components?.labor || 0) : null, l.cost, l.issue || '']);
     }
   }
   return [
@@ -112,7 +112,7 @@ export function productTables(catalog) {
     },
     {
       name: 'Ανάλυση προϊόντων',
-      columns: [['Προϊόν', 30], ['Είδος', 12], ['Στοιχείο', 30], ['Ποσότητα', 10, 'num'], ['Μονάδα', 8], ['Τιμή μονάδας (€)', 12, 'money4'], ['Ανά', 8], ['Κόστος/τεμ. (€)', 12, 'money4'], ['Ένδειξη', 30]],
+      columns: [['Προϊόν', 30], ['Είδος', 12], ['Στοιχείο', 30], ['Ποσότητα', 10, 'num'], ['Μονάδα', 8], ['Τιμή μονάδας (€)', 12, 'money4'], ['Ανά', 8], ['Κόστος/τεμ. χωρίς εργασία (€)', 14, 'money4'], ['Κόστος/τεμ. με εργασία (€)', 14, 'money4'], ['Ένδειξη', 30]],
       rows: lines,
     },
   ];

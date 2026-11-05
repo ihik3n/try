@@ -35,6 +35,23 @@ export const COMPONENT_LABEL = {
   overhead: 'Λειτουργικά έξοδα',
 };
 
+// Κύριο κόστος που εμφανίζεται: χωρίς εργασία προσωπικού (προεπιλογή) ή με εργασία.
+// Η εργασία υπολογίζεται πάντα και εμφανίζεται χωριστά· αλλάζει μόνο ποιο ποσό είναι το «κύριο».
+export const HEADLINE_MODES = ['without_labor', 'with_labor'];
+export const HEADLINE_LABEL = { without_labor: 'χωρίς εργασία', with_labor: 'με εργασία' };
+export function headlineMode(settings) {
+  return settings?.cost_headline === 'with_labor' ? 'with_labor' : 'without_labor';
+}
+/** Κύριο ποσό από ανάλυση {materials, packaging, labor, overhead, total} ή από γραμμή με components. */
+export function headline(c, mode) {
+  if (!c) return null;
+  const total = c.total ?? (c.cost != null ? c.cost : null);
+  if (total == null) return null;
+  if (mode === 'with_labor') return total;
+  const labor = c.labor ?? c.components?.labor ?? 0;
+  return total - labor;
+}
+
 const zero = () => ({ materials: 0, packaging: 0, labor: 0, overhead: 0 });
 const zeroCovered = () => ({ materials: 0, packaging: 0, labor: 0 });
 const total = (c) => c.materials + c.packaging + c.labor + c.overhead;
