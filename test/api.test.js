@@ -10,6 +10,9 @@ test('πρόσβαση: χωρίς σύνδεση δεν δίνονται δεδ
   try {
     const st = await s.api.get('/api/auth/status');
     assert.equal(st.needsSetup, true);
+    const lan = await s.api.get('/api/lan');
+    assert.ok(Array.isArray(lan.urls));
+    for (const u of lan.urls) assert.match(u.url, /^http:\/\/\d+\.\d+\.\d+\.\d+:\d+$/);
     const r = await s.api.get('/api/catalog', { raw: true });
     assert.equal(r.status, 401);
     await s.api.post('/api/auth/setup', { username: 'admin', password: 'kodikos123' });

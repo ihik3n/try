@@ -5,11 +5,23 @@ import { Link, Badge, DiffText } from '../ui.jsx';
 import { Icon } from '../icons.jsx';
 import { formatMoney, formatDate, formatUnitPrice, COST_UNIT_SHORT } from '../format.js';
 import { navigate } from '../router.js';
+import { PhoneAccess } from '../components/PhoneAccess.jsx';
+import { isTouch } from '../platform.js';
+
+const PHONE_KEY = 'phone-card-dismissed';
+function phoneCardHidden() {
+  try {
+    return localStorage.getItem(PHONE_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
 
 export function Home() {
   const { catalog, engine } = useStore();
   const [events, setEvents] = useState([]);
   const [drafts, setDrafts] = useState([]);
+  const [phoneHidden, setPhoneHidden] = useState(() => isTouch() || phoneCardHidden());
   useEffect(() => {
     api.get('/api/price-events?limit=5').then(setEvents).catch(() => {});
     api
@@ -53,6 +65,31 @@ export function Home() {
           <Icon name="factory" /> Παραγωγή
         </button>
       </div>
+
+      {!phoneHidden && (
+        <div className="card">
+          <div className="card-head">
+            <h2>Άνοιγμα στο iPhone</h2>
+            <button
+              className="btn small ghost"
+              onClick={() => {
+                try {
+                  localStorage.setItem(PHONE_KEY, '1');
+                } catch {
+                  /* */
+                }
+                setPhoneHidden(true);
+              }}
+            >
+              Απόκρυψη
+            </button>
+          </div>
+          <PhoneAccess />
+          <p className="small muted" style={{ marginTop: '.5rem' }}>
+            Μετά, στο Safari: Κοινοποίηση → «Προσθήκη στην αρχική οθόνη». Ο κωδικός υπάρχει πάντα και στις Ρυθμίσεις.
+          </p>
+        </div>
+      )}
 
       <div className="card">
         <div className="stats">

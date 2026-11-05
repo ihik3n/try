@@ -4,7 +4,8 @@ import { useStore, useAction } from '../store.jsx';
 import { PageHead, Field, TextInput, NumberInput, Badge, Spinner, Modal, SampleBadge } from '../ui.jsx';
 import { Icon } from '../icons.jsx';
 import { formatDateTime, formatBytes } from '../format.js';
-import { isIOS, isStandalone } from '../platform.js';
+import { isIOS, isStandalone, isTouch } from '../platform.js';
+import { PhoneAccess } from '../components/PhoneAccess.jsx';
 
 export function Settings() {
   const { catalog, reload, confirm } = useStore();
@@ -406,7 +407,7 @@ function InstallCard() {
       ) : (
         <ol style={{ paddingLeft: '1.2rem', margin: '0 0 .6rem' }}>
           <li>
-            Ανοίξτε στο <b>Safari</b> του iPhone τη διεύθυνση <code style={{ overflowWrap: 'anywhere' }}>{window.location.origin}</code>
+            Ανοίξτε στο <b>Safari</b> του iPhone τη διεύθυνση της εφαρμογής (σκανάρετε τον κωδικό QR παρακάτω από τον υπολογιστή).
           </li>
           <li>
             Πατήστε <b>«Κοινοποίηση»</b> (το τετράγωνο με το βέλος προς τα πάνω).
@@ -417,6 +418,7 @@ function InstallCard() {
           <li>Ανοίξτε την «Κοστολόγηση» από το εικονίδιο και συνδεθείτε μία φορά (η εφαρμογή κρατά ξεχωριστή σύνδεση από το Safari).</li>
         </ol>
       )}
+      {!isTouch() && <PhoneAccess />}
       <p className="small muted">
         Τα δεδομένα είναι κοινά με τον υπολογιστή, γιατί βρίσκονται στον server. Η κάμερα για τα τιμολόγια λειτουργεί κανονικά. Τα αρχεία Excel/CSV και τα αντίγραφα ασφαλείας αποθηκεύονται μέσω «Κοινοποίηση» → «Αποθήκευση στα Αρχεία».
       </p>

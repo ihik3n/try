@@ -165,6 +165,12 @@ async function run() {
   await d.locator('input[type=password]').fill('kodikos123');
   await d.getByRole('button', { name: 'Είσοδος' }).click();
   await d.getByText('Ελλιπή κοστολόγια').waitFor();
+  step('Υπολογιστής: κωδικός QR για άνοιγμα στο iPhone');
+  await d.getByRole('heading', { name: 'Άνοιγμα στο iPhone' }).waitFor();
+  await d.locator('.qr svg').waitFor();
+  const phoneUrl = await d.locator('.phone-url').innerText();
+  if (!/^http:\/\/\d+\.\d+\.\d+\.\d+:\d+$/.test(phoneUrl)) throw new Error(`Μη έγκυρη διεύθυνση για iPhone: ${phoneUrl}`);
+  console.log('  Διεύθυνση για iPhone:', phoneUrl);
   await shot(d, 'd01-home');
 
   step('Υπολογιστής: κοινά δεδομένα — η νέα τιμή φαίνεται');

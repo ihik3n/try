@@ -11,5 +11,6 @@ export default defineConfig({
     fs: { allow: ['..'] },
     proxy: { '/api': 'http://localhost:3000' },
   },
-  build: { outDir: '../dist', emptyOutDir: true, sourcemap: false, chunkSizeWarningLimit: 900 },
+  // Συμβατότητα και με παλαιότερα iPhone (Safari 14+)
+  build: { outDir: '../dist', emptyOutDir: true, sourcemap: false, chunkSizeWarningLimit: 900, target: ['es2020', 'safari14', 'chrome87', 'firefox78', 'edge88'] },
 });

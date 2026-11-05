@@ -7,6 +7,7 @@ import { loadCatalog } from '../services/catalog.js';
 import { createSnapshot, compareSnapshot } from '../services/snapshots.js';
 import { hasSampleData, seedSampleData, deleteSampleData } from '../services/sample.js';
 import { HttpError, num, str, int, idParam, required } from './util.js';
+import { lanUrls } from '../net.js';
 
 export function publicRoutes({ db, config, ai }) {
   const r = express.Router();
@@ -14,6 +15,11 @@ export function publicRoutes({ db, config, ai }) {
 
   r.get('/auth/status', (req, res) => {
     res.json({ needsSetup: userCount() === 0, user: req.user || null, ai: { enabled: ai.enabled, model: ai.model } });
+  });
+
+  // Διευθύνσεις για άνοιγμα από iPhone/κινητό στο ίδιο δίκτυο (QR κωδικός στην εφαρμογή).
+  r.get('/lan', (req, res) => {
+    res.json({ port: config.port, urls: lanUrls(config.port) });
   });
 
   r.post('/auth/setup', (req, res) => {
