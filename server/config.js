@@ -9,6 +9,7 @@ export function loadConfig(overrides = {}) {
     dataDir,
     dbPath: path.join(dataDir, 'app.db'),
     uploadsDir: path.join(dataDir, 'uploads'),
+    photosDir: path.join(dataDir, 'photos'),
     backupsDir: path.join(dataDir, 'backups'),
     anthropicApiKey: process.env.ANTHROPIC_API_KEY || '',
     aiModel: process.env.AI_MODEL || 'claude-opus-5-5',
@@ -21,6 +22,6 @@ export function loadConfig(overrides = {}) {
     seedSample: process.env.SEED_SAMPLE !== '0',
     ...overrides,
   };
-  for (const d of [cfg.dataDir, cfg.uploadsDir, cfg.backupsDir]) fs.mkdirSync(d, { recursive: true });
+  for (const d of [cfg.dataDir, cfg.uploadsDir, cfg.photosDir, cfg.backupsDir]) fs.mkdirSync(d, { recursive: true });
   return cfg;
 }

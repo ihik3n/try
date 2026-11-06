@@ -6,6 +6,8 @@ import { matchesSearch } from '@shared/text.js';
 import { wouldCreateCycle } from '@shared/costing.js';
 import { formatMoney, COST_UNIT_SHORT } from '../format.js';
 import { Icon } from '../icons.jsx';
+import { Thumb } from './Thumb.jsx';
+import { Avatar } from './Avatar.jsx';
 
 /**
  * kinds: ['material','packaging','recipe','product']
@@ -88,6 +90,11 @@ export function ItemPicker({ title = 'Επιλογή', kinds = ['material', 'pac
             onClick={() => !i.disabled && onPick(i)}
             title={i.disabled ? 'Θα δημιουργούσε κυκλική σύνδεση' : ''}
           >
+            {i.type === 'material' ? (
+              <Avatar text={i.kind === 'packaging' ? '' : i.m.category || i.name} icon={i.kind === 'packaging' ? 'box' : null} tone={i.kind === 'packaging' ? 'tone-sky' : undefined} />
+            ) : (
+              <Thumb photo={(i.r || i.p).photo} name={i.name} category={(i.r || i.p).category} kind={i.type} />
+            )}
             <div className="grow">
               <div className="title">
                 {i.name} {i.type === 'material' && <SampleBadge show={i.m.is_sample} />}

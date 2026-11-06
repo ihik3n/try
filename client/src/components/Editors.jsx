@@ -81,10 +81,10 @@ export function ItemsEditor({ kind, items, setItems, result, selfId }) {
                 <button className={`name-btn ${name ? '' : 'empty'}`} onClick={() => setPicker(it._key)}>
                   <span className="kindtag">{kindLabel}</span> {name || 'Επιλογή…'}
                 </button>
-                <button className="iconbtn" onClick={() => move(i, -1)} aria-label="Πάνω" disabled={i === 0}>
+                <button className="iconbtn move" onClick={() => move(i, -1)} aria-label="Πάνω" disabled={i === 0}>
                   <Icon name="up" />
                 </button>
-                <button className="iconbtn" onClick={() => move(i, 1)} aria-label="Κάτω" disabled={i === items.length - 1}>
+                <button className="iconbtn move" onClick={() => move(i, 1)} aria-label="Κάτω" disabled={i === items.length - 1}>
                   <Icon name="down" />
                 </button>
                 <button className="iconbtn" onClick={() => remove(it._key)} aria-label="Αφαίρεση">

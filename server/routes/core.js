@@ -8,6 +8,7 @@ import { createSnapshot, compareSnapshot } from '../services/snapshots.js';
 import { hasSampleData, seedSampleData, deleteSampleData } from '../services/sample.js';
 import { HttpError, num, str, int, idParam, required } from './util.js';
 import { lanUrls } from '../net.js';
+import { cleanupOrphanPhotos } from '../services/photos.js';
 
 export function publicRoutes({ db, config, ai }) {
   const r = express.Router();
@@ -55,7 +56,7 @@ export function publicRoutes({ db, config, ai }) {
   return r;
 }
 
-export function coreRoutes({ db, ai }) {
+export function coreRoutes({ db, ai, config }) {
   const r = express.Router();
 
   r.get('/catalog', (req, res) => {
@@ -229,7 +230,9 @@ export function coreRoutes({ db, ai }) {
 
   // ---- Παραδειγματικά δεδομένα ----
   r.post('/sample-data/delete', (req, res) => {
-    res.json(deleteSampleData(db));
+    const out = deleteSampleData(db);
+    cleanupOrphanPhotos(db, config);
+    res.json(out);
   });
   r.post('/sample-data/load', (req, res) => {
     if (hasSampleData(db)) throw new HttpError(409, 'Τα παραδειγματικά δεδομένα υπάρχουν ήδη.');

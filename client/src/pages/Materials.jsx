@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react';
 import { useStore } from '../store.jsx';
-import { Link, PageHead, PriceText, SampleBadge, Badge, Empty, Chips, Select } from '../ui.jsx';
+import { Link, PageHead, PriceText, SampleBadge, Badge, Empty, Chips, Select, SearchInput } from '../ui.jsx';
 import { Icon } from '../icons.jsx';
 import { MaterialForm } from '../components/MaterialForm.jsx';
+import { Avatar } from '../components/Avatar.jsx';
 import { formatDate } from '../format.js';
 import { matchesSearch } from '@shared/text.js';
 import { navigate } from '../router.js';
@@ -30,13 +31,13 @@ export function Materials({ initialFilter }) {
 
   return (
     <div>
-      <PageHead title="Υλικά & συσκευασίες">
+      <PageHead title="Υλικά & συσκευασίες" subtitle="Τιμές από τα τιμολόγια ή χειροκίνητα · αναζήτηση με ή χωρίς τόνους">
         <button className="btn primary" onClick={() => setCreating(true)}>
           <Icon name="plus" /> Νέο υλικό
         </button>
       </PageHead>
       <div className="searchbar">
-        <input className="input" placeholder="Αναζήτηση (π.χ. «κρεμα 35»)…" value={q} onChange={(e) => setQ(e.target.value)} />
+        <SearchInput value={q} onChange={setQ} placeholder="Αναζήτηση (π.χ. «κρεμα 35»)…" />
         <Select value={cat} onChange={setCat} placeholder="Όλες οι κατηγορίες" options={(catalog.material_categories || []).map((c) => ({ value: c, label: c }))} style={{ flex: '0 1 220px' }} />
       </div>
       <Chips
@@ -57,6 +58,7 @@ export function Materials({ initialFilter }) {
           <div className="list">
             {list.map((m) => (
               <Link key={m.id} to={`/materials/${m.id}`} className="list-item">
+                <Avatar text={m.kind === 'packaging' ? '' : m.category || m.name} icon={m.kind === 'packaging' ? 'box' : null} tone={m.kind === 'packaging' ? 'tone-sky' : undefined} />
                 <div className="grow">
                   <div className="title">
                     {m.name} <SampleBadge show={m.is_sample} /> {m.kind === 'packaging' && <Badge kind="neutral">Συσκευασία</Badge>}

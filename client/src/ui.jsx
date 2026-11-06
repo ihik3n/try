@@ -164,27 +164,43 @@ export function Spinner() {
   return <span className="spinner" aria-label="Φόρτωση" />;
 }
 
-export function Empty({ icon = 'file', children }) {
+export function Empty({ icon = 'file', children, action }) {
   return (
     <div className="empty">
-      <Icon name={icon} />
+      <span className="eic">
+        <Icon name={icon} />
+      </span>
       <div>{children}</div>
+      {action && <div style={{ marginTop: '.8rem' }}>{action}</div>}
     </div>
   );
 }
 
-export function PageHead({ title, back, children, badges }) {
+export function PageHead({ title, back, children, badges, subtitle }) {
   return (
     <div className="pagehead">
       {back && (
         <Link to={back} className="back" aria-label="Πίσω">
-          ‹
+          <Icon name="back" />
         </Link>
       )}
-      <h1>
-        {title} {badges}
-      </h1>
+      <div className="titles">
+        <h1>
+          {title} {badges}
+        </h1>
+        {subtitle && <div className="subtitle">{subtitle}</div>}
+      </div>
       {children && <div className="toolbar">{children}</div>}
+    </div>
+  );
+}
+
+/** Πεδίο αναζήτησης με εικονίδιο. */
+export function SearchInput({ value, onChange, placeholder = 'Αναζήτηση…' }) {
+  return (
+    <div className="search">
+      <Icon name="search" />
+      <input className="input" type="search" placeholder={placeholder} value={value} onChange={(e) => onChange(e.target.value)} />
     </div>
   );
 }

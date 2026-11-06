@@ -1,16 +1,18 @@
 import { useMemo, useState } from 'react';
 import { useStore } from '../store.jsx';
-import { Link, PageHead, SampleBadge, Badge, Empty, Select } from '../ui.jsx';
+import { PageHead, Empty, SearchInput, Chips } from '../ui.jsx';
 import { Icon } from '../icons.jsx';
-import { formatMoney, COST_UNIT_SHORT, baseQtyLabel } from '../format.js';
+import { Tile } from '../components/Tile.jsx';
+import { baseQtyLabel } from '../format.js';
 import { matchesSearch } from '@shared/text.js';
 import { navigate } from '../router.js';
 
 export function Recipes() {
   const { catalog, engine, hl } = useStore();
   const [q, setQ] = useState('');
-  const [cat, setCat] = useState(null);
+  const [cat, setCat] = useState('');
   const [archived, setArchived] = useState(false);
+  const cats = catalog.recipe_categories || [];
   const list = useMemo(
     () =>
       catalog.recipes
@@ -20,49 +22,37 @@ export function Recipes() {
   );
   return (
     <div>
-      <PageHead title="Συνταγολόγιο">
+      <PageHead title="Συνταγολόγιο" subtitle={`${catalog.recipes.filter((r) => !r.archived).length} συνταγές · κόστος ανά κιλό, λίτρο ή τεμάχιο`}>
         <button className="btn primary" onClick={() => navigate('/recipes/new')}>
           <Icon name="plus" /> Νέα συνταγή
         </button>
       </PageHead>
       <div className="searchbar">
-        <input className="input" placeholder="Αναζήτηση συνταγής…" value={q} onChange={(e) => setQ(e.target.value)} />
-        <Select value={cat} onChange={setCat} placeholder="Όλες οι κατηγορίες" options={(catalog.recipe_categories || []).map((c) => ({ value: c, label: c }))} style={{ flex: '0 1 220px' }} />
+        <SearchInput value={q} onChange={setQ} placeholder="Αναζήτηση συνταγής…" />
         <label className="checkbox small">
           <input type="checkbox" checked={archived} onChange={(e) => setArchived(e.target.checked)} /> Αρχειοθετημένες
         </label>
       </div>
-      <div className="card tight">
-        {!list.length ? (
-          <Empty icon="book">Δεν υπάρχουν συνταγές.</Empty>
-        ) : (
-          <div className="list">
-            {list.map(({ r, res }) => (
-              <Link key={r.id} to={`/recipes/${r.id}`} className="list-item">
-                <div className="grow">
-                  <div className="title">
-                    {r.name} <SampleBadge show={r.is_sample} />
-                  </div>
-                  <div className="sub">
-                    {r.category ? `${r.category} · ` : ''}
-                    {res.yield.ok ? `Απόδοση ${baseQtyLabel(res.yield.base, res.yield.baseUnit)}` : 'Χωρίς έγκυρη απόδοση'} · {r.items.length} υλικά
-                  </div>
-                </div>
-                <div className="value">
-                  {res.perUnit ? (
-                    <div className="strong">
-                      {formatMoney(hl(res.perUnit))}/{COST_UNIT_SHORT[res.yield.outputUnit]}
-                    </div>
-                  ) : (
-                    '—'
-                  )}
-                  {!res.complete && <Badge kind="danger">Ελλιπές</Badge>}
-                </div>
-              </Link>
-            ))}
-          </div>
-        )}
-      </div>
+      {cats.length > 1 && <Chips value={cat} onChange={setCat} options={[{ value: '', label: 'Όλες' }, ...cats.map((c) => ({ value: c, label: c }))]} />}
+      {!list.length ? (
+        <div className="card">
+          <Empty icon="book">Δεν βρέθηκαν συνταγές.</Empty>
+        </div>
+      ) : (
+        <div className="tiles">
+          {list.map(({ r, res }) => (
+            <Tile
+              key={r.id}
+              to={`/recipes/${r.id}`}
+              item={r}
+              kind="recipe"
+              result={res}
+              hl={hl}
+              meta={[r.category, res.yield.ok ? `απόδοση ${baseQtyLabel(res.yield.base, res.yield.baseUnit)}` : null].filter(Boolean).join(' · ')}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

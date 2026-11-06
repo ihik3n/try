@@ -485,3 +485,45 @@ test('ανάγνωση με συνδρομή Claude: οδηγίες, επικό�
     await s.close();
   }
 });
+
+test('φωτογραφίες συνταγών/προϊόντων: ανέβασμα, προβολή, αντιγραφή, αντίγραφο ασφαλείας, διαγραφή', async () => {
+  const s = await loggedIn();
+  const { api } = s;
+  try {
+    const m = await mkMaterial(api, { name: 'Ζάχαρη', cost_unit: 'kg' });
+    const rec = await api.post('/api/recipes', { name: 'Μαρέγκα', items: [{ material_id: m.id, qty: 100, unit: 'g' }] });
+    const jpg = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3, 4]);
+    const fd = new FormData();
+    fd.append('photo', new Blob([jpg], { type: 'image/jpeg' }), 'meringue.jpg');
+    const up = await api.post(`/api/recipes/${rec.id}/photo`, fd);
+    assert.match(up.photo, /^r\d+-[a-f0-9]{12}\.jpg$/);
+    const got = await api.get(`/api/photos/${up.photo}`);
+    assert.deepEqual([...got], [...jpg]);
+    // Μη επιτρεπτό όνομα αρχείου
+    assert.equal((await api.get('/api/photos/..%2Fapp.db', { raw: true })).status, 404);
+    // Μόνο εικόνες
+    const bad = new FormData();
+    bad.append('photo', new Blob([Buffer.from('%PDF')], { type: 'application/pdf' }), 'x.pdf');
+    assert.equal((await api.post(`/api/recipes/${rec.id}/photo`, bad, { raw: true })).status, 415);
+    // Αντιγραφή συνταγής → δικό της αντίγραφο φωτογραφίας
+    const dup = await api.post(`/api/recipes/${rec.id}/duplicate`);
+    let cat = await api.get('/api/catalog');
+    const copy = cat.recipes.find((r) => r.id === dup.id);
+    assert.ok(copy.photo && copy.photo !== up.photo);
+    // Αντίγραφο ασφαλείας με φωτογραφίες → επαναφορά
+    const zip = await api.get('/api/backup/download');
+    await api.del(`/api/recipes/${dup.id}`);
+    assert.equal((await api.get(`/api/photos/${copy.photo}`, { raw: true })).status, 404);
+    const fd2 = new FormData();
+    fd2.append('file', new Blob([zip], { type: 'application/zip' }), 'b.zip');
+    await api.post('/api/backup/restore', fd2);
+    assert.deepEqual([...(await api.get(`/api/photos/${copy.photo}`))], [...jpg]);
+    // Αφαίρεση φωτογραφίας
+    await api.del(`/api/recipes/${rec.id}/photo`);
+    cat = await api.get('/api/catalog');
+    assert.equal(cat.recipes.find((r) => r.id === rec.id).photo, null);
+    assert.equal((await api.get(`/api/photos/${up.photo}`, { raw: true })).status, 404);
+  } finally {
+    await s.close();
+  }
+});

@@ -20,6 +20,11 @@ export function buildBackup(db, config) {
     const p = path.join(config.uploadsDir, f.stored_name);
     if (fs.existsSync(p)) entries[`files/${f.stored_name}`] = [new Uint8Array(fs.readFileSync(p)), { level: 0 }];
   }
+  for (const row of [...tables.recipes, ...tables.products]) {
+    if (!row.photo) continue;
+    const p = path.join(config.photosDir, row.photo);
+    if (fs.existsSync(p)) entries[`photos/${row.photo}`] = [new Uint8Array(fs.readFileSync(p)), { level: 0 }];
+  }
   return Buffer.from(zipSync(entries));
 }
 
@@ -117,6 +122,17 @@ export function restoreBackup(db, config, buf, { keepSessions = true } = {}) {
   }
   for (const f of fs.readdirSync(config.uploadsDir)) {
     if (!wanted.has(f)) fs.unlinkSync(path.join(config.uploadsDir, f));
+  }
+  // Φωτογραφίες συνταγών/προϊόντων
+  const photos = new Set([...(data.tables.recipes || []), ...(data.tables.products || [])].map((r) => r.photo).filter(Boolean));
+  for (const [name, content] of Object.entries(files)) {
+    if (!name.startsWith('photos/')) continue;
+    const base = path.basename(name);
+    if (!photos.has(base) || !/^[\w.-]+$/.test(base)) continue;
+    fs.writeFileSync(path.join(config.photosDir, base), content);
+  }
+  for (const f of fs.readdirSync(config.photosDir)) {
+    if (!photos.has(f)) fs.unlinkSync(path.join(config.photosDir, f));
   }
   return { preRestoreBackup: pre.name, counts: data.meta.counts };
 }

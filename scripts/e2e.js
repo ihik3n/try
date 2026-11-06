@@ -99,7 +99,7 @@ async function run() {
 
   step('Συνταγή: πραγματική απόδοση 2.000 g');
   await nav(m, 'Συνταγές');
-  await m.locator('.list-item', { hasText: 'Μους σοκολάτας' }).click();
+  await m.locator('.tile', { hasText: 'Μους σοκολάτας' }).click();
   await m.getByText('Τελική απόδοση', { exact: true }).waitFor();
   const costText = await m.locator('.costbox .big').first().innerText();
   console.log('  Μους σοκολάτας:', costText, '/kg');
@@ -107,7 +107,7 @@ async function run() {
 
   step('Προϊόν: ποτηράκι μους');
   await nav(m, 'Προϊόντα');
-  await m.locator('.list-item', { hasText: 'Ποτηράκι μους σοκολάτας' }).click();
+  await m.locator('.tile', { hasText: 'Ποτηράκι μους σοκολάτας' }).click();
   await m.getByText('Αναλυτικά ανά τεμάχιο').waitFor();
   await shot(m, 'm05-product');
 
@@ -180,7 +180,7 @@ async function run() {
 
   step('Υπολογιστής: συνταγή — αλλαγή ποσότητας ενημερώνει κόστος');
   await d.locator('.sidebar').getByText('Συνταγές').click();
-  await d.locator('.list-item', { hasText: 'Crumble' }).click();
+  await d.locator('.tile', { hasText: 'Crumble' }).click();
   await d.getByText('Τελική απόδοση', { exact: true }).waitFor();
   const lossVal = await d.locator('.radio-card.active input.input').first().inputValue();
   if (lossVal !== '8') throw new Error(`Το πεδίο φύρας δείχνει «${lossVal}» αντί για 8`);
@@ -192,12 +192,40 @@ async function run() {
   const after = await d.locator('.costbox .big').first().innerText();
   if (before === after) throw new Error('Το κόστος δεν άλλαξε μετά την αλλαγή ποσότητας');
   console.log(`  Crumble: ${before} → ${after}`);
+  step('Υπολογιστής: φωτογραφία συνταγής');
+  const jpeg = Buffer.from(
+    (
+      await d.evaluate(() => {
+        const c = document.createElement('canvas');
+        c.width = 800;
+        c.height = 600;
+        const g = c.getContext('2d');
+        const gr = g.createLinearGradient(0, 0, 800, 600);
+        gr.addColorStop(0, '#c98a4b');
+        gr.addColorStop(1, '#5b3524');
+        g.fillStyle = gr;
+        g.fillRect(0, 0, 800, 600);
+        g.fillStyle = '#f6e7d4';
+        for (let i = 0; i < 40; i++) g.fillRect(40 + (i % 8) * 92, 60 + Math.floor(i / 8) * 100, 50, 40);
+        return c.toDataURL('image/jpeg', 0.9);
+      })
+    ).split(',')[1],
+    'base64',
+  );
+  await d.locator('.photo-field input[type=file]').setInputFiles({ name: 'crumble.jpg', mimeType: 'image/jpeg', buffer: jpeg });
+  await d.locator('.photo-field img[src^="/api/photos/"]').waitFor();
+  await shot(d, 'd02b-recipe-photo');
   await shot(d, 'd02-recipe-edit');
   d.once('dialog', (dlg) => dlg.accept());
   await d.locator('.sidebar').getByText('Προϊόντα').click();
-  await d.locator('.list-item', { hasText: 'Τούρτα' }).click();
+  await d.locator('.tile', { hasText: 'Τούρτα' }).click();
   await d.getByText('Αναλυτικά ανά τεμάχιο').waitFor();
   await shot(d, 'd03-product');
+
+  step('Υπολογιστής: λίστα συνταγών με φωτογραφία');
+  await d.locator('.sidebar').getByText('Συνταγές').click();
+  await d.locator('.tile', { hasText: 'Crumble' }).locator('img[src^="/api/photos/"]').waitFor();
+  await shot(d, 'd02c-recipes');
 
   step('Υπολογιστής: τιμολόγιο σε δύο στήλες');
   await d.locator('.sidebar').getByText('Τιμολόγια').click();

@@ -3,6 +3,7 @@ import { api } from '../api.js';
 import { useStore, useAction } from '../store.jsx';
 import { PageHead, Field, TextInput, NumberInput, CostBreakdown, Issues, SampleBadge, Spinner, Badge } from '../ui.jsx';
 import { Icon } from '../icons.jsx';
+import { PhotoField } from '../components/Thumb.jsx';
 import { ItemsEditor, LaborOverhead, OwnCostsNote, withKey, lineCost } from '../components/Editors.jsx';
 import { formatMoney, formatQty, formatUnitPrice, BASIS_LABEL } from '../format.js';
 import { createEngine, COMPONENT_LABEL } from '@shared/costing.js';
@@ -89,6 +90,9 @@ export function ProductEdit({ id }) {
       <div className="grid-main-side">
         <div>
           <div className="card">
+            <div className="edit-head">
+              <PhotoField kind="product" id={id} photo={saved?.photo} name={draft.name} category={draft.category} onChange={() => reload()} />
+              <div className="fields">
             <div className="row">
               <Field label="Όνομα προϊόντος *" className="w-md">
                 <TextInput value={draft.name} onChange={(v) => set('name', v)} placeholder="π.χ. Ποτηράκι μους σοκολάτας" />
@@ -101,6 +105,8 @@ export function ProductEdit({ id }) {
                   ))}
                 </datalist>
               </Field>
+            </div>
+              </div>
             </div>
           </div>
           <div className="card">

@@ -65,8 +65,8 @@ const NAV = [
   { to: '/recipes', label: 'Συνταγές', icon: 'book' },
   { to: '/products', label: 'Προϊόντα', icon: 'cake' },
   { to: '/production', label: 'Παραγωγή', icon: 'factory' },
-  { to: '/history', label: 'Ιστορικό', icon: 'history' },
-  { to: '/settings', label: 'Ρυθμίσεις', icon: 'settings' },
+  { to: '/history', label: 'Ιστορικό', icon: 'history', group: 'admin' },
+  { to: '/settings', label: 'Ρυθμίσεις', icon: 'settings', group: 'admin' },
 ];
 const MOBILE_NAV = ['/invoices', '/materials', '/recipes', '/products', '/production'];
 
@@ -131,14 +131,19 @@ function Shell({ onLogout }) {
     await api.post('/api/auth/logout');
     onLogout();
   };
+  const businessName = catalog.settings.business_name || 'Κοστολόγηση';
+  const userName = catalog.user?.display_name || catalog.user?.username || '';
   const badge = (to) => (to === '/invoices' && catalog.drafts ? <span className="navbadge">{catalog.drafts}</span> : null);
 
   return (
     <div className="app">
       <header className="topbar">
         <Link to="/" className="brand">
-          <img src="/icon.svg" alt="" width="26" height="26" />
-          <span>{catalog.settings.business_name || 'Κοστολόγηση'}</span>
+          <img src="/icon.svg" alt="" className="logo" />
+          <span className="names">
+            <span className="bname">{businessName}</span>
+            <span className="bsub">Κοστολόγηση</span>
+          </span>
         </Link>
         <div className="spacer" />
         <span className="basis" title="Βάση κοστολόγησης (Ρυθμίσεις)">
@@ -153,44 +158,71 @@ function Shell({ onLogout }) {
           <Icon name="logout" />
         </button>
       </header>
-      {isIOS && !standalone && !hintDismissed && (
-        <div className="install-hint no-print" role="note">
-          <span>
-            <b>Εγκατάσταση στο iPhone:</b> πατήστε <ShareGlyph /> «Κοινοποίηση» και μετά <b>«Προσθήκη στην αρχική οθόνη»</b>.
-          </span>
-          <button
-            className="iconbtn"
-            aria-label="Απόκρυψη"
-            onClick={() => {
-              try {
-                localStorage.setItem(HINT_KEY, '1');
-              } catch {
-                /* ιδιωτική περιήγηση */
-              }
-              setHintDismissed(true);
-            }}
-          >
-            <Icon name="x" />
-          </button>
-        </div>
-      )}
-      {catalog.has_sample && (
-        <div className="sample-banner no-print">
-          <span>
-            Περιέχονται <b>παραδειγματικά δεδομένα</b> (σήμανση «ΠΑΡΑΔΕΙΓΜΑ»). Οι τιμές τους δεν είναι πραγματικές.
-          </span>
-          <Link to="/settings">Διαγραφή όταν είστε έτοιμοι →</Link>
-        </div>
-      )}
       <div className="layout">
         <nav className="sidebar">
-          {NAV.map((n) => (
-            <Link key={n.to} to={n.to} className={isActive(n, path) ? 'active' : ''}>
+          <Link to="/" className="brand">
+            <img src="/icon.svg" alt="" className="logo" />
+            <span className="names">
+              <span className="bname">{businessName}</span>
+              <span className="bsub">Κοστολόγηση</span>
+            </span>
+          </Link>
+          <div className="navlabel">Καθημερινά</div>
+          {NAV.filter((n) => n.group !== 'admin').map((n) => (
+            <Link key={n.to} to={n.to} className={`navlink ${isActive(n, path) ? 'active' : ''}`}>
               <Icon name={n.icon} /> {n.label} {badge(n.to)}
             </Link>
           ))}
+          <div className="navlabel">Διαχείριση</div>
+          {NAV.filter((n) => n.group === 'admin').map((n) => (
+            <Link key={n.to} to={n.to} className={`navlink ${isActive(n, path) ? 'active' : ''}`}>
+              <Icon name={n.icon} /> {n.label}
+            </Link>
+          ))}
+          <div className="sidefoot">
+            <span className="basis" title="Βάση κοστολόγησης (Ρυθμίσεις)">
+              Κοστολόγηση {BASIS_LABEL[catalog.settings.vat_basis]}
+            </span>
+            <div className="user">
+              <span className="avatar">{(userName || '?').trim().charAt(0).toUpperCase()}</span>
+              <span className="grow">{userName}</span>
+              <button className="iconbtn" onClick={logout} title="Αποσύνδεση" aria-label="Αποσύνδεση">
+                <Icon name="logout" />
+              </button>
+            </div>
+          </div>
         </nav>
         <main className="main">
+          {isIOS && !standalone && !hintDismissed && (
+            <div className="install-hint no-print" role="note">
+              <span>
+                <b>Εγκατάσταση στο iPhone:</b> πατήστε <ShareGlyph /> «Κοινοποίηση» και μετά <b>«Προσθήκη στην αρχική οθόνη»</b>.
+              </span>
+              <button
+                className="iconbtn"
+                aria-label="Απόκρυψη"
+                onClick={() => {
+                  try {
+                    localStorage.setItem(HINT_KEY, '1');
+                  } catch {
+                    /* ιδιωτική περιήγηση */
+                  }
+                  setHintDismissed(true);
+                }}
+              >
+                <Icon name="x" />
+              </button>
+            </div>
+          )}
+          {catalog.has_sample && (
+            <div className="sample-banner no-print">
+              <Icon name="sparkle" size={18} />
+              <span>
+                Περιέχονται <b>παραδειγματικά δεδομένα</b> με σήμανση «ΠΑΡΑΔΕΙΓΜΑ». Οι τιμές τους δεν είναι πραγματικές.
+              </span>
+              <Link to="/settings">Διαγραφή όταν είστε έτοιμοι →</Link>
+            </div>
+          )}
           <Routes path={path} query={query} />
         </main>
       </div>

@@ -376,6 +376,11 @@ const MIGRATIONS = [
     updated_at TEXT NOT NULL
   );
   `,
+  // v3: φωτογραφίες συνταγών και προϊόντων (όνομα αρχείου στον φάκελο photos)
+  `
+  ALTER TABLE recipes ADD COLUMN photo TEXT;
+  ALTER TABLE products ADD COLUMN photo TEXT;
+  `,
 ];
 
 export function openDb(file) {

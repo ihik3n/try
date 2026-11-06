@@ -1,6 +1,9 @@
 // Συνταγές και τελικά προϊόντα.
 
 import express from 'express';
+import multer from 'multer';
+import fs from 'node:fs';
+import { PHOTO_TYPES, savePhoto, removePhoto, copyPhoto, photoPath } from '../services/photos.js';
 import { nowIso } from '../db.js';
 import { loadRecipes, loadCatalog } from '../services/catalog.js';
 import { itemsCreateCycle, directUsage, OVERHEAD_BASES } from '../../shared/costing.js';
@@ -28,8 +31,42 @@ function checkRefs(db, items) {
   }
 }
 
-export function recipeRoutes({ db }) {
+export function recipeRoutes({ db, config }) {
   const r = express.Router();
+  const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: config.maxUploadMb * 1024 * 1024, files: 1 } });
+
+  // ---------------- Φωτογραφίες ----------------
+  const TABLE = { recipes: 'recipes', products: 'products' };
+  const PREFIX = { recipes: 'r', products: 'p' };
+  for (const kind of ['recipes', 'products']) {
+    r.post(`/${kind}/:id/photo`, upload.single('photo'), (req, res) => {
+      const id = idParam(req);
+      const row = db.prepare(`SELECT id, photo FROM ${TABLE[kind]} WHERE id = ?`).get(id);
+      if (!row) throw new HttpError(404, 'Δεν βρέθηκε.');
+      if (!req.file || !PHOTO_TYPES[req.file.mimetype]) throw new HttpError(415, 'Επιλέξτε φωτογραφία (JPG, PNG ή WEBP).');
+      const name = savePhoto(config, PREFIX[kind], id, req.file.buffer, req.file.mimetype);
+      db.prepare(`UPDATE ${TABLE[kind]} SET photo = ?, updated_at = ? WHERE id = ?`).run(name, nowIso(), id);
+      if (row.photo) removePhoto(config, row.photo);
+      res.json({ photo: name });
+    });
+    r.delete(`/${kind}/:id/photo`, (req, res) => {
+      const id = idParam(req);
+      const row = db.prepare(`SELECT id, photo FROM ${TABLE[kind]} WHERE id = ?`).get(id);
+      if (!row) throw new HttpError(404, 'Δεν βρέθηκε.');
+      db.prepare(`UPDATE ${TABLE[kind]} SET photo = NULL, updated_at = ? WHERE id = ?`).run(nowIso(), id);
+      if (row.photo) removePhoto(config, row.photo);
+      res.json({ photo: null });
+    });
+  }
+  r.get('/photos/:name', (req, res) => {
+    const p = photoPath(config, req.params.name);
+    if (!p || !fs.existsSync(p)) throw new HttpError(404, 'Η φωτογραφία δεν βρέθηκε.');
+    const ext = req.params.name.split('.').pop();
+    res.setHeader('Content-Type', ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg');
+    // Το όνομα αλλάζει σε κάθε νέα φωτογραφία, οπότε μπορεί να αποθηκευτεί μόνιμα στη συσκευή.
+    res.setHeader('Cache-Control', 'private, max-age=31536000, immutable');
+    fs.createReadStream(p).pipe(res);
+  });
 
   const recipeBody = (b) => {
     const mode = oneOf(b.yield_mode, ['actual', 'loss', 'none'], 'none');
@@ -112,7 +149,9 @@ export function recipeRoutes({ db }) {
     if (used.recipes.length || used.products.length) {
       throw new HttpError(409, `Η συνταγή χρησιμοποιείται σε: ${[...used.recipes, ...used.products].map((x) => x.name).join(', ')}.`);
     }
+    const photo = db.prepare('SELECT photo FROM recipes WHERE id = ?').get(id)?.photo;
     db.prepare('DELETE FROM recipes WHERE id = ?').run(id);
+    if (photo) removePhoto(config, photo);
     res.json({ ok: true });
   });
 
@@ -128,6 +167,7 @@ export function recipeRoutes({ db }) {
         .prepare(`INSERT INTO recipes (${cols.join(',')}, created_at, updated_at) VALUES (${cols.map((c) => '@' + c).join(',')}, @now, @now)`)
         .run({ ...rest, name: `${src.name} (αντίγραφο)`, now });
       db.prepare('INSERT INTO recipe_items (recipe_id, position, material_id, sub_recipe_id, qty, unit, note) SELECT ?, position, material_id, sub_recipe_id, qty, unit, note FROM recipe_items WHERE recipe_id = ?').run(info.lastInsertRowid, id);
+      db.prepare('UPDATE recipes SET photo = ? WHERE id = ?').run(src.photo ? copyPhoto(config, src.photo, 'r', info.lastInsertRowid) : null, info.lastInsertRowid);
       return info.lastInsertRowid;
     })();
     res.json({ id: newId });
@@ -187,7 +227,10 @@ export function recipeRoutes({ db }) {
   });
 
   r.delete('/products/:id', (req, res) => {
-    db.prepare('DELETE FROM products WHERE id = ?').run(idParam(req));
+    const id = idParam(req);
+    const photo = db.prepare('SELECT photo FROM products WHERE id = ?').get(id)?.photo;
+    db.prepare('DELETE FROM products WHERE id = ?').run(id);
+    if (photo) removePhoto(config, photo);
     res.json({ ok: true });
   });
 
@@ -203,6 +246,7 @@ export function recipeRoutes({ db }) {
         .prepare(`INSERT INTO products (${cols.join(',')}, created_at, updated_at) VALUES (${cols.map((c) => '@' + c).join(',')}, @now, @now)`)
         .run({ ...rest, name: `${src.name} (αντίγραφο)`, now });
       db.prepare('INSERT INTO product_items (product_id, position, material_id, recipe_id, qty, unit, note) SELECT ?, position, material_id, recipe_id, qty, unit, note FROM product_items WHERE product_id = ?').run(info.lastInsertRowid, id);
+      db.prepare('UPDATE products SET photo = ? WHERE id = ?').run(src.photo ? copyPhoto(config, src.photo, 'p', info.lastInsertRowid) : null, info.lastInsertRowid);
       return info.lastInsertRowid;
     })();
     res.json({ id: newId });
